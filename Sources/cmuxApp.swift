@@ -157,6 +157,7 @@ struct cmuxApp: App {
     @StateObject private var sidebarState = SidebarState()
     @StateObject private var sidebarSelectionState = SidebarSelectionState()
     @StateObject private var fileExplorerState = FileExplorerState()
+    @StateObject private var projectModelController: ProjectModelController
     @StateObject private var cmuxConfigStore = CmuxConfigStore()
     @StateObject private var keyboardShortcutSettingsObserver = KeyboardShortcutSettingsObserver.shared
     private let primaryWindowId = UUID()
@@ -188,7 +189,14 @@ struct cmuxApp: App {
 
         let startupAppearance = AppearanceSettings.resolvedMode()
         Self.applyAppearance(startupAppearance)
-        _tabManager = StateObject(wrappedValue: TabManager())
+        let resolvedNotificationStore = TerminalNotificationStore.shared
+        let resolvedSidebarState = SidebarState()
+        let resolvedProjectModelController = ProjectModelController()
+        let resolvedTabManager = TabManager()
+        _notificationStore = StateObject(wrappedValue: resolvedNotificationStore)
+        _sidebarState = StateObject(wrappedValue: resolvedSidebarState)
+        _projectModelController = StateObject(wrappedValue: resolvedProjectModelController)
+        _tabManager = StateObject(wrappedValue: resolvedTabManager)
         // Migrate legacy and old-format socket mode values to the new enum.
         let defaults = UserDefaults.standard
         if let stored = defaults.string(forKey: SocketControlSettings.appStorageKey) {
@@ -211,9 +219,9 @@ struct cmuxApp: App {
         }
         migrateSidebarAppearanceDefaultsIfNeeded(defaults: defaults)
 
-        // UI tests depend on AppDelegate wiring happening even if SwiftUI view appearance
-        // callbacks (e.g. `.onAppear`) are delayed or skipped.
-        appDelegate.configure(tabManager: tabManager, notificationStore: notificationStore, sidebarState: sidebarState)
+        // AppDelegate wiring is applied from view lifecycle hooks after SwiftUI
+        // finishes object graph initialization, avoiding early access to
+        // property-wrapper backed state during `App.init()`.
     }
 
     private static func terminateForMissingLaunchTag() -> Never {
@@ -342,6 +350,7 @@ struct cmuxApp: App {
                 .environmentObject(sidebarState)
                 .environmentObject(sidebarSelectionState)
                 .environmentObject(fileExplorerState)
+                .environmentObject(projectModelController)
                 .environmentObject(cmuxConfigStore)
                 .onAppear {
 #if DEBUG
@@ -353,6 +362,7 @@ struct cmuxApp: App {
                     updateSocketController()
                     appDelegate.configure(tabManager: tabManager, notificationStore: notificationStore, sidebarState: sidebarState)
                     appDelegate.fileExplorerState = fileExplorerState
+                    appDelegate.projectModelController = projectModelController
                     cmuxConfigStore.wireDirectoryTracking(tabManager: tabManager)
                     cmuxConfigStore.loadAll()
                     applyAppearance()
@@ -584,14 +594,7 @@ struct cmuxApp: App {
 
                 splitCommandButton(title: String(localized: "menu.file.newWorkspace", defaultValue: "New Workspace"), shortcut: menuShortcut(for: .newTab)) {
                     if let appDelegate = AppDelegate.shared {
-                        if appDelegate.addWorkspaceInPreferredMainWindow(debugSource: "menu.newWorkspace") == nil {
-#if DEBUG
-                            FocusLogStore.shared.append(
-                                "cmdn.route phase=fallback_new_window src=menu.newWorkspace reason=workspace_creation_returned_nil"
-                            )
-#endif
-                            appDelegate.openNewMainWindow(nil)
-                        }
+                        _ = appDelegate.handleNewWorkspaceRequest(debugSource: "menu.newWorkspace")
                     } else {
                         activeTabManager.addTab()
                     }
@@ -4432,6 +4435,10 @@ struct SettingsView: View {
     private var paneFirstClickFocusEnabled = PaneFirstClickFocusSettings.defaultEnabled
     @AppStorage(TerminalScrollBarSettings.showScrollBarKey)
     private var showTerminalScrollBar = TerminalScrollBarSettings.defaultShowScrollBar
+    @AppStorage(TextBoxInputSettings.enabledKey) private var textBoxInputEnabled = TextBoxInputSettings.defaultEnabled
+    @AppStorage(TextBoxInputSettings.enterToSendKey) private var textBoxEnterToSend = TextBoxInputSettings.defaultEnterToSend
+    @AppStorage(TextBoxInputSettings.escapeBehaviorKey) private var textBoxEscapeBehavior = TextBoxInputSettings.defaultEscapeBehavior.rawValue
+    @AppStorage(TextBoxInputSettings.shortcutBehaviorKey) private var textBoxShortcutBehavior = TextBoxInputSettings.defaultShortcutBehavior.rawValue
     @AppStorage(WorkspaceAutoReorderSettings.key) private var workspaceAutoReorder = WorkspaceAutoReorderSettings.defaultValue
     @AppStorage(SidebarWorkspaceDetailSettings.hideAllDetailsKey)
     private var sidebarHideAllDetails = SidebarWorkspaceDetailSettings.defaultHideAllDetails
@@ -4478,6 +4485,15 @@ struct SettingsView: View {
     @State private var socketPasswordStatusIsError = false
     @State private var notificationCustomSoundStatusMessage: String?
     @State private var notificationCustomSoundStatusIsError = false
+
+    private var textBoxShortcutBehaviorTitle: String {
+        let key = KeyboardShortcutSettings.toggleTextBoxInputShortcut().displayString
+        let format = String(
+            localized: "settings.textBoxInput.shortcutBehavior",
+            defaultValue: "Keyboard Shortcut (%@)"
+        )
+        return String.localizedStringWithFormat(format, key)
+    }
     @State private var showNotificationCustomSoundErrorAlert = false
     @State private var notificationCustomSoundErrorAlertMessage = ""
     @State private var telemetryValueAtLaunch = TelemetrySettings.enabledForCurrentLaunch
@@ -5531,6 +5547,8 @@ struct SettingsView: View {
                         }
                     }
 
+                    textBoxInputSettingsSection
+
                     SettingsSectionHeader(title: String(localized: "settings.section.workspaceColors", defaultValue: "Workspace Colors"))
                     SettingsCard {
                         SettingsPickerRow(
@@ -6509,6 +6527,68 @@ struct SettingsView: View {
         NSApplication.shared.terminate(nil)
     }
 
+    @ViewBuilder
+    private var textBoxInputSettingsSection: some View {
+        SettingsSectionHeader(title: String(localized: "settings.section.textBoxInput", defaultValue: "TextBox Input"))
+        SettingsCard {
+            SettingsCardRow(
+                configurationReview: .settingsOnly,
+                String(localized: "settings.textBoxInput.enableMode", defaultValue: "Enable Mode"),
+                subtitle: String(localized: "settings.textBoxInput.enableMode.subtitle", defaultValue: "Replace terminal input with a native text box. Supports standard editing, IME, and clipboard shortcuts.")
+            ) {
+                Toggle("", isOn: $textBoxInputEnabled)
+                    .labelsHidden()
+                    .controlSize(.small)
+            }
+
+            SettingsCardDivider()
+
+            SettingsCardRow(
+                configurationReview: .settingsOnly,
+                String(localized: "settings.textBoxInput.sendOnReturn", defaultValue: "Send on Return"),
+                subtitle: String(localized: "settings.textBoxInput.sendOnReturn.subtitle", defaultValue: "Insert new line with Shift+Return")
+            ) {
+                Toggle("", isOn: $textBoxEnterToSend)
+                    .labelsHidden()
+                    .controlSize(.small)
+            }
+            .disabled(!textBoxInputEnabled)
+            .opacity(textBoxInputEnabled ? 1.0 : TextBoxInputSettings.disabledSettingsOpacity)
+
+            SettingsCardDivider()
+
+            SettingsPickerRow(
+                configurationReview: .settingsOnly,
+                textBoxShortcutBehaviorTitle,
+                subtitle: String(localized: "settings.textBoxInput.shortcutBehavior.subtitle", defaultValue: "Shortcut key can be changed in Keyboard Shortcuts settings."),
+                controlWidth: pickerColumnWidth,
+                selection: $textBoxShortcutBehavior
+            ) {
+                ForEach(TextBoxShortcutBehavior.allCases) { behavior in
+                    Text(behavior.displayName).tag(behavior.rawValue)
+                }
+            }
+            .disabled(!textBoxInputEnabled)
+            .opacity(textBoxInputEnabled ? 1.0 : TextBoxInputSettings.disabledSettingsOpacity)
+
+            SettingsCardDivider()
+
+            SettingsPickerRow(
+                configurationReview: .settingsOnly,
+                String(localized: "settings.textBoxInput.escapeBehavior", defaultValue: "Escape Key"),
+                subtitle: String(localized: "settings.textBoxInput.escapeBehavior.subtitle", defaultValue: "Action when pressing Escape in the TextBox."),
+                controlWidth: pickerColumnWidth,
+                selection: $textBoxEscapeBehavior
+            ) {
+                ForEach(TextBoxEscapeBehavior.allCases) { behavior in
+                    Text(behavior.displayName).tag(behavior.rawValue)
+                }
+            }
+            .disabled(!textBoxInputEnabled)
+            .opacity(textBoxInputEnabled ? 1.0 : TextBoxInputSettings.disabledSettingsOpacity)
+        }
+    }
+
     private func resetAllSettings() {
         isResettingSettings = true
         appLanguage = LanguageSettings.defaultLanguage.rawValue
@@ -6569,6 +6649,11 @@ struct SettingsView: View {
         if previousShowTerminalScrollBar != showTerminalScrollBar {
             TerminalScrollBarSettings.notifyDidChange()
         }
+        TextBoxInputSettings.resetAll()
+        textBoxInputEnabled = TextBoxInputSettings.defaultEnabled
+        textBoxEnterToSend = TextBoxInputSettings.defaultEnterToSend
+        textBoxEscapeBehavior = TextBoxInputSettings.defaultEscapeBehavior.rawValue
+        textBoxShortcutBehavior = TextBoxInputSettings.defaultShortcutBehavior.rawValue
         workspaceAutoReorder = WorkspaceAutoReorderSettings.defaultValue
         sidebarHideAllDetails = SidebarWorkspaceDetailSettings.defaultHideAllDetails
         sidebarShowNotificationMessage = SidebarWorkspaceDetailSettings.defaultShowNotificationMessage

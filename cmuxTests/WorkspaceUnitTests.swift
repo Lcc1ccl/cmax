@@ -179,6 +179,21 @@ final class WorkspaceRenameShortcutDefaultsTests: XCTestCase {
         XCTAssertFalse(shortcut.control)
     }
 
+    func testToggleTextBoxInputShortcutDefaultsAndMetadata() {
+        XCTAssertEqual(KeyboardShortcutSettings.Action.toggleTextBoxInput.label, "Toggle TextBox Input")
+        XCTAssertEqual(
+            KeyboardShortcutSettings.Action.toggleTextBoxInput.defaultsKey,
+            "shortcut.toggleTextBoxInput"
+        )
+
+        let shortcut = KeyboardShortcutSettings.Action.toggleTextBoxInput.defaultShortcut
+        XCTAssertEqual(shortcut.key, "t")
+        XCTAssertTrue(shortcut.command)
+        XCTAssertFalse(shortcut.shift)
+        XCTAssertTrue(shortcut.option)
+        XCTAssertFalse(shortcut.control)
+    }
+
     func testMenuItemKeyEquivalentHandlesArrowAndTabKeys() {
         XCTAssertNotNil(StoredShortcut(key: "←", command: true, shift: false, option: false, control: false).menuItemKeyEquivalent)
         XCTAssertNotNil(StoredShortcut(key: "→", command: true, shift: false, option: false, control: false).menuItemKeyEquivalent)
@@ -318,6 +333,100 @@ final class WorkspaceRenameShortcutDefaultsTests: XCTestCase {
 #else
         XCTFail("Shortcut recorder debug hooks are only available in DEBUG")
 #endif
+    }
+}
+
+final class TerminalTextBoxSettingsTests: XCTestCase {
+    private let defaults = UserDefaults.standard
+
+    override func setUp() {
+        super.setUp()
+        TextBoxInputSettings.resetAll()
+    }
+
+    override func tearDown() {
+        TextBoxInputSettings.resetAll()
+        super.tearDown()
+    }
+
+    func testDefaultsMatchExpectedBehavior() {
+        XCTAssertTrue(TextBoxInputSettings.isEnabled())
+        XCTAssertTrue(TextBoxInputSettings.isEnterToSend())
+        XCTAssertEqual(TextBoxInputSettings.escapeBehavior(), .sendEscape)
+        XCTAssertEqual(TextBoxInputSettings.shortcutBehavior(), .toggleFocus)
+    }
+
+    func testStoredOverridesAreReadBack() {
+        defaults.set(false, forKey: TextBoxInputSettings.enabledKey)
+        defaults.set(false, forKey: TextBoxInputSettings.enterToSendKey)
+        defaults.set(TextBoxEscapeBehavior.focusTerminal.rawValue, forKey: TextBoxInputSettings.escapeBehaviorKey)
+        defaults.set(TextBoxShortcutBehavior.toggleDisplay.rawValue, forKey: TextBoxInputSettings.shortcutBehaviorKey)
+
+        XCTAssertFalse(TextBoxInputSettings.isEnabled())
+        XCTAssertFalse(TextBoxInputSettings.isEnterToSend())
+        XCTAssertEqual(TextBoxInputSettings.escapeBehavior(), .focusTerminal)
+        XCTAssertEqual(TextBoxInputSettings.shortcutBehavior(), .toggleDisplay)
+    }
+}
+
+@MainActor
+final class WorkspaceTextBoxToggleTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        TextBoxInputSettings.resetAll()
+    }
+
+    override func tearDown() {
+        TextBoxInputSettings.resetAll()
+        super.tearDown()
+    }
+
+    func testToggleFocusShowsTextBoxAndFocusesInputView() {
+        _ = NSApplication.shared
+        let defaults = UserDefaults.standard
+        defaults.set(TextBoxShortcutBehavior.toggleFocus.rawValue, forKey: TextBoxInputSettings.shortcutBehaviorKey)
+
+        let workspace = Workspace(title: "Terminal", workingDirectory: "/tmp")
+        guard let panel = workspace.focusedTerminalPanel else {
+            XCTFail("Expected focused terminal panel")
+            return
+        }
+
+        panel.isTextBoxActive = false
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        let rootView = NSView(frame: window.contentView?.bounds ?? .zero)
+        let textView = InputTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 40))
+        rootView.addSubview(textView)
+        window.contentView = rootView
+        panel.inputTextView = textView
+
+        workspace.toggleTextBoxMode(.default)
+
+        XCTAssertTrue(panel.isTextBoxActive)
+        XCTAssertTrue(window.firstResponder === textView)
+    }
+
+    func testToggleDisplayHidesActiveTextBox() {
+        _ = NSApplication.shared
+        let defaults = UserDefaults.standard
+        defaults.set(TextBoxShortcutBehavior.toggleDisplay.rawValue, forKey: TextBoxInputSettings.shortcutBehaviorKey)
+
+        let workspace = Workspace(title: "Terminal", workingDirectory: "/tmp")
+        guard let panel = workspace.focusedTerminalPanel else {
+            XCTFail("Expected focused terminal panel")
+            return
+        }
+
+        panel.isTextBoxActive = true
+        workspace.toggleTextBoxMode(.active)
+
+        XCTAssertFalse(panel.isTextBoxActive)
     }
 }
 

@@ -300,6 +300,7 @@ extension Workspace {
             isPinned: isPinned,
             terminalScrollBarHidden: terminalScrollBarHidden ? true : nil,
             currentDirectory: currentDirectory,
+            projectId: projectId,
             focusedPanelId: focusedPanelId,
             layout: layout,
             panels: panelSnapshots,
@@ -312,6 +313,8 @@ extension Workspace {
 
     func restoreSessionSnapshot(_ snapshot: SessionWorkspaceSnapshot) {
         restoredTerminalScrollbackByPanelId.removeAll(keepingCapacity: false)
+
+        projectId = snapshot.projectId
 
         let normalizedCurrentDirectory = snapshot.currentDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
         if !normalizedCurrentDirectory.isEmpty {
@@ -6490,6 +6493,7 @@ final class Workspace: Identifiable, ObservableObject {
     @Published var title: String
     @Published var customTitle: String?
     @Published var customDescription: String?
+    @Published var projectId: String?
     @Published var isPinned: Bool = false
     @Published var customColor: String?  // hex string, e.g. "#C0392B"
     @Published private(set) var terminalScrollBarHidden: Bool = false
@@ -6545,6 +6549,77 @@ final class Workspace: Identifiable, ObservableObject {
             return nil
         }
         return panel
+    }
+
+    func toggleTextBoxMode(_ target: TextBoxToggleTarget) {
+        let terminalPanels = panels.values.compactMap { $0 as? TerminalPanel }
+        let firstResponder = NSApp.keyWindow?.firstResponder
+        let activePanel = terminalPanels.first(where: { $0.inputTextView === firstResponder })
+            ?? focusedTerminalPanel
+        let behavior = TextBoxInputSettings.shortcutBehavior()
+
+        switch target {
+        case .active:
+            switch behavior {
+            case .toggleDisplay:
+                if activePanel?.isTextBoxActive == true {
+                    activePanel?.isTextBoxActive = false
+                    activePanel?.surface.focusTerminalView()
+                } else {
+                    activePanel?.isTextBoxActive = true
+                }
+            case .toggleFocus:
+                guard let panel = activePanel else { return }
+                let isFocused = panel.inputTextView != nil && firstResponder === panel.inputTextView
+                if !panel.isTextBoxActive {
+                    panel.isTextBoxActive = true
+                } else if isFocused {
+                    panel.surface.focusTerminalView()
+                } else if let textView = panel.inputTextView {
+                    textView.window?.makeFirstResponder(textView)
+                }
+            }
+        case .all:
+            let anyActive = terminalPanels.contains { $0.isTextBoxActive }
+            switch behavior {
+            case .toggleDisplay:
+                if anyActive {
+                    for panel in terminalPanels {
+                        panel.isTextBoxActive = false
+                    }
+                    activePanel?.surface.focusTerminalView()
+                } else {
+                    for panel in terminalPanels {
+                        panel.isTextBoxActive = true
+                    }
+                    let panel = activePanel
+                    DispatchQueue.main.async {
+                        if let textView = panel?.inputTextView {
+                            textView.window?.makeFirstResponder(textView)
+                        }
+                    }
+                }
+            case .toggleFocus:
+                if !anyActive {
+                    for panel in terminalPanels {
+                        panel.isTextBoxActive = true
+                    }
+                }
+                guard let panel = activePanel else { return }
+                let isFocused = panel.inputTextView != nil && firstResponder === panel.inputTextView
+                if isFocused {
+                    panel.surface.focusTerminalView()
+                } else if let textView = panel.inputTextView {
+                    textView.window?.makeFirstResponder(textView)
+                } else {
+                    DispatchQueue.main.async {
+                        if let textView = panel.inputTextView {
+                            textView.window?.makeFirstResponder(textView)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     func effectiveSelectedPanelId(inPane paneId: PaneID) -> UUID? {
@@ -6870,6 +6945,7 @@ final class Workspace: Identifiable, ObservableObject {
         self.title = title
         self.customTitle = nil
         self.customDescription = nil
+        self.projectId = nil
 
         let trimmedWorkingDirectory = workingDirectory?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let hasWorkingDirectory = !trimmedWorkingDirectory.isEmpty

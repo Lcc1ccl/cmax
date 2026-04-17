@@ -2819,6 +2819,127 @@ final class GhosttySurfaceOverlayTests: XCTestCase {
     }
 }
 
+final class TerminalTextBoxUtilityTests: XCTestCase {
+    func testPlaceholderTextReflectsSendShortcut() {
+        XCTAssertEqual(
+            terminalTextBoxPlaceholderText(enterToSend: true),
+            "Commands or prompts here… Shift+Return for newline"
+        )
+        XCTAssertEqual(
+            terminalTextBoxPlaceholderText(enterToSend: false),
+            "Commands or prompts here… Shift+Return to send"
+        )
+    }
+
+    func testReturnActionUsesEnterToSendSetting() {
+        XCTAssertEqual(
+            terminalTextBoxReturnAction(enterToSend: true, isShiftPressed: false),
+            .submit
+        )
+        XCTAssertEqual(
+            terminalTextBoxReturnAction(enterToSend: true, isShiftPressed: true),
+            .insertNewline
+        )
+        XCTAssertEqual(
+            terminalTextBoxReturnAction(enterToSend: false, isShiftPressed: false),
+            .insertNewline
+        )
+        XCTAssertEqual(
+            terminalTextBoxReturnAction(enterToSend: false, isShiftPressed: true),
+            .submit
+        )
+    }
+
+    func testClampedHeightStaysWithinConfiguredBounds() {
+        let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        let minHeight = terminalTextBoxHeight(forVisibleLineCount: 2, font: font)
+        let maxHeight = terminalTextBoxHeight(forVisibleLineCount: 8, font: font)
+
+        XCTAssertEqual(
+            terminalTextBoxClampedHeight(measuredHeight: minHeight - 20, font: font),
+            minHeight,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            terminalTextBoxClampedHeight(measuredHeight: maxHeight + 40, font: font),
+            maxHeight,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            terminalTextBoxClampedHeight(measuredHeight: 120, font: font),
+            120,
+            accuracy: 0.001
+        )
+    }
+
+    func testTextBoxRoutingForCtrlAndPrefixKeys() {
+        XCTAssertEqual(
+            TextBoxKeyRouting.route(.ctrl("c"), isEmpty: false, terminalTitle: "zsh", enterToSend: true),
+            .forwardControl
+        )
+        XCTAssertEqual(
+            TextBoxKeyRouting.route(.ctrl("a"), isEmpty: false, terminalTitle: "zsh", enterToSend: true),
+            .emacsEdit
+        )
+        XCTAssertEqual(
+            TextBoxKeyRouting.route(.text("/"), isEmpty: true, terminalTitle: "Claude Code", enterToSend: true),
+            .forwardPrefix("/")
+        )
+        XCTAssertEqual(
+            TextBoxKeyRouting.route(.key("?"), isEmpty: true, terminalTitle: "Codex", enterToSend: true),
+            .forwardKeyEvent
+        )
+    }
+
+    func testTextBoxRoutingForReturnEscapeAndEmptyNavigation() {
+        XCTAssertEqual(
+            TextBoxKeyRouting.route(
+                .command(#selector(NSResponder.insertNewline(_:)), shifted: false),
+                isEmpty: false,
+                terminalTitle: "zsh",
+                enterToSend: true
+            ),
+            .submit
+        )
+        XCTAssertEqual(
+            TextBoxKeyRouting.route(
+                .command(#selector(NSResponder.insertNewline(_:)), shifted: true),
+                isEmpty: false,
+                terminalTitle: "zsh",
+                enterToSend: true
+            ),
+            .insertNewline
+        )
+        XCTAssertEqual(
+            TextBoxKeyRouting.route(
+                .command(#selector(NSResponder.cancelOperation(_:)), shifted: false),
+                isEmpty: false,
+                terminalTitle: "zsh",
+                enterToSend: true
+            ),
+            .escape
+        )
+        XCTAssertEqual(
+            TextBoxKeyRouting.route(
+                .command(#selector(NSResponder.moveUp(_:)), shifted: false),
+                isEmpty: true,
+                terminalTitle: "zsh",
+                enterToSend: true
+            ),
+            .forwardKey(.arrowUp)
+        )
+        XCTAssertEqual(
+            TextBoxKeyRouting.route(
+                .command(#selector(NSResponder.deleteBackward(_:)), shifted: false),
+                isEmpty: true,
+                terminalTitle: "zsh",
+                enterToSend: true
+            ),
+            .forwardKey(.backspace)
+        )
+    }
+}
+
 
 @MainActor
 final class TerminalWindowPortalLifecycleTests: XCTestCase {

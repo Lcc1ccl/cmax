@@ -83,6 +83,7 @@ enum KeyboardShortcutSettings {
         case toggleBrowserDeveloperTools
         case showBrowserJavaScriptConsole
         case toggleReactGrab
+        case toggleTextBoxInput
 
         var id: String { rawValue }
 
@@ -145,6 +146,7 @@ enum KeyboardShortcutSettings {
             case .toggleBrowserDeveloperTools: return String(localized: "shortcut.toggleBrowserDevTools.label", defaultValue: "Toggle Browser Developer Tools")
             case .showBrowserJavaScriptConsole: return String(localized: "shortcut.showBrowserJSConsole.label", defaultValue: "Show Browser JavaScript Console")
             case .toggleReactGrab: return String(localized: "shortcut.toggleReactGrab.label", defaultValue: "Toggle React Grab")
+            case .toggleTextBoxInput: return String(localized: "shortcut.toggleTextBoxInput.label", defaultValue: "Toggle TextBox Input")
             }
         }
 
@@ -272,6 +274,8 @@ enum KeyboardShortcutSettings {
                 return StoredShortcut(key: "c", command: true, shift: false, option: true, control: false)
             case .toggleReactGrab:
                 return StoredShortcut(key: "g", command: true, shift: true, option: false, control: false)
+            case .toggleTextBoxInput:
+                return StoredShortcut(key: "t", command: true, shift: false, option: true, control: false)
             }
         }
 
@@ -499,6 +503,7 @@ enum KeyboardShortcutSettings {
     static func openBrowserShortcut() -> StoredShortcut { shortcut(for: .openBrowser) }
     static func toggleBrowserDeveloperToolsShortcut() -> StoredShortcut { shortcut(for: .toggleBrowserDeveloperTools) }
     static func showBrowserJavaScriptConsoleShortcut() -> StoredShortcut { shortcut(for: .showBrowserJavaScriptConsole) }
+    static func toggleTextBoxInputShortcut() -> StoredShortcut { shortcut(for: .toggleTextBoxInput) }
 }
 
 enum SystemWideHotkeySettings {

@@ -1862,10 +1862,12 @@ func shouldSuppressSplitShortcutForTransientTerminalFocusInputs(
 
 func focusedTerminalKeyRepairNeeded(
     responderIsWindow: Bool,
+    responderIsTextBox: Bool,
     responderHasViableKeyRoutingOwner: Bool,
     responderMatchesPreferredKeyboardFocus: Bool
 ) -> Bool {
-    responderIsWindow || !responderHasViableKeyRoutingOwner || !responderMatchesPreferredKeyboardFocus
+    guard !responderIsTextBox else { return false }
+    return responderIsWindow || !responderHasViableKeyRoutingOwner || !responderMatchesPreferredKeyboardFocus
 }
 
 func shouldRepairFocusedTerminalCommandEquivalentInputs(
@@ -2276,6 +2278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     weak var notificationStore: TerminalNotificationStore?
     weak var sidebarState: SidebarState?
     weak var fileExplorerState: FileExplorerState?
+    var projectModelController: ProjectModelController?
     weak var fullscreenControlsViewModel: TitlebarControlsViewModel?
     weak var sidebarSelectionState: SidebarSelectionState?
     var shortcutLayoutCharacterProvider: (UInt16, NSEvent.ModifierFlags) -> String? = KeyboardLayout.character(forKeyCode:modifierFlags:)
@@ -3780,6 +3783,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         guard SessionRestorePolicy.shouldAttemptRestore() else { return }
         Self.removeLegacyPersistedWindowGeometry()
         startupSessionSnapshot = SessionPersistenceStore.load()
+        projectModelController?.restoreProjectCatalog(startupSessionSnapshot?.projects ?? [])
     }
 
     private func persistedWindowGeometry(
@@ -3948,6 +3952,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         )
 #endif
         context.tabManager.restoreSessionSnapshot(snapshot.tabManager)
+        projectModelController?.restoreWorkspaceBindings(
+            snapshot: snapshot.tabManager,
+            tabManager: context.tabManager
+        )
         context.sidebarState.isVisible = snapshot.sidebar.isVisible
         context.sidebarState.persistedWidth = CGFloat(
             SessionPersistencePolicy.sanitizedSidebarWidth(snapshot.sidebar.width)
@@ -4729,6 +4737,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         guard !contexts.isEmpty else { return nil }
 
+        let allWorkspaces = contexts.flatMap { $0.tabManager.tabs }
+        projectModelController?.syncWorkspaceBindings(allWorkspaces)
+        let projectSnapshots = projectModelController?.snapshotProjects(for: allWorkspaces)
+
         let windows: [SessionWindowSnapshot] = contexts
             .prefix(SessionPersistencePolicy.maxWindowsPerSnapshot)
             .map { context in
@@ -4749,6 +4761,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return AppSessionSnapshot(
             version: SessionSnapshotSchema.currentVersion,
             createdAt: Date().timeIntervalSince1970,
+            projects: projectSnapshots?.isEmpty == false ? projectSnapshots : nil,
             windows: windows
         )
     }
@@ -5747,6 +5760,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         guard let responder else { return true }
         return focusedTerminalKeyRepairNeeded(
             responderIsWindow: responder is NSWindow,
+            responderIsTextBox: responder is InputTextView,
             responderHasViableKeyRoutingOwner: responderHasViableKeyRoutingOwner(responder, in: window),
             responderMatchesPreferredKeyboardFocus: hostedView.responderMatchesPreferredKeyboardFocus(responder)
         )
@@ -6586,6 +6600,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
+    func showMissingProjectRepairPanel(projectId: String) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.title = String(localized: "sidebar.project.repairMissing", defaultValue: "Repair Missing Project…")
+        panel.prompt = String(localized: "menu.file.openFolder.panelPrompt", defaultValue: "Open")
+        if let currentProject = projectModelController?.project(id: projectId) {
+            panel.directoryURL = URL(fileURLWithPath: currentProject.rootPathCached)
+        }
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+        _ = projectModelController?.repairMissingProject(projectId: projectId, directory: url.path)
+    }
+
     @discardableResult
     func openDirectoryInInlineVSCode(
         _ directoryURL: URL,
@@ -6771,14 +6801,103 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         workingDirectory: String,
         debugSource: String
     ) {
-        if addWorkspaceInPreferredMainWindow(
-            workingDirectory: workingDirectory,
+        if openProjectWorkspace(
+            directory: workingDirectory,
             shouldBringToFront: true,
             debugSource: debugSource
         ) != nil {
             return
         }
-        _ = createMainWindow(initialWorkingDirectory: workingDirectory)
+    }
+
+    @discardableResult
+    private func openProjectWorkspace(
+        directory: String,
+        targetContext: MainWindowContext? = nil,
+        shouldBringToFront: Bool = false,
+        debugSource: String
+    ) -> UUID? {
+        let chosenContext = targetContext ?? preferredMainWindowContextForWorkspaceCreation(debugSource: debugSource)
+        if let chosenContext,
+           let workspaceId = createWorkspace(
+                in: chosenContext,
+                workingDirectory: directory,
+                shouldBringToFront: shouldBringToFront,
+                event: nil,
+                debugSource: debugSource,
+                bindAsUserSelectedProject: true
+           ) {
+            return workspaceId
+        }
+
+        let windowId = createMainWindow(initialWorkingDirectory: directory)
+        guard let manager = tabManagerFor(windowId: windowId),
+              let workspace = manager.selectedWorkspace else {
+            return nil
+        }
+        _ = projectModelController?.bindUserSelectedProject(to: workspace, directory: directory)
+        return workspace.id
+    }
+
+    @discardableResult
+    private func showProjectDirectoryPanel(
+        targetContext: MainWindowContext?,
+        debugSource: String
+    ) -> UUID? {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.title = String(localized: "menu.file.openFolder.panelTitle", defaultValue: "Open Folder")
+        panel.prompt = String(localized: "menu.file.openFolder.panelPrompt", defaultValue: "Open")
+        if let cwd = targetContext?.tabManager.selectedWorkspace?.currentDirectory,
+           !cwd.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: cwd)
+        }
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return nil
+        }
+        return openProjectWorkspace(
+            directory: url.path,
+            targetContext: targetContext,
+            shouldBringToFront: true,
+            debugSource: debugSource
+        )
+    }
+
+    /// Central funnel for user-triggered workspace creation so menu items,
+    /// shortcuts, and command-palette actions share the same routing and
+    /// future project-aware logic can hook in one place.
+    @discardableResult
+    func handleNewWorkspaceRequest(
+        event: NSEvent? = nil,
+        debugSource: String = "unspecified"
+    ) -> UUID? {
+        if event == nil {
+            _ = synchronizeActiveMainWindowContext(
+                preferredWindow: NSApp.keyWindow ?? NSApp.mainWindow
+            )
+        }
+        let context = preferredMainWindowContextForWorkspaceCreation(event: event, debugSource: debugSource)
+        if let context,
+           let activeProject = projectModelController?.activeProject(for: context.tabManager),
+           !activeProject.isMissing {
+            if let workspaceId = createWorkspace(
+                in: context,
+                workingDirectory: activeProject.rootPathCached,
+                shouldBringToFront: false,
+                event: event,
+                debugSource: debugSource,
+                projectId: activeProject.projectId
+            ) {
+                return workspaceId
+            }
+        }
+
+        return showProjectDirectoryPanel(
+            targetContext: context,
+            debugSource: debugSource
+        )
     }
 
     @discardableResult
@@ -6811,6 +6930,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             #endif
             return nil
         }
+        return createWorkspace(
+            in: context,
+            workingDirectory: workingDirectory,
+            shouldBringToFront: shouldBringToFront,
+            event: event,
+            debugSource: debugSource
+        )
+    }
+
+    @discardableResult
+    private func createWorkspace(
+        in context: MainWindowContext,
+        workingDirectory: String?,
+        shouldBringToFront: Bool,
+        event: NSEvent?,
+        debugSource: String,
+        projectId: String? = nil,
+        bindAsUserSelectedProject: Bool = false
+    ) -> UUID? {
         guard let window = resolvedWindow(for: context) else {
             #if DEBUG
             logWorkspaceCreationRouting(
@@ -6835,6 +6973,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             workspace = context.tabManager.addWorkspace(workingDirectory: workingDirectory, select: true)
         } else {
             workspace = context.tabManager.addTab(select: true)
+        }
+        if bindAsUserSelectedProject {
+            _ = projectModelController?.bindUserSelectedProject(
+                to: workspace,
+                directory: workingDirectory
+            )
+        } else if let projectId,
+                  let project = projectModelController?.project(id: projectId) {
+            workspace.projectId = project.projectId
+            _ = projectModelController?.syncWorkspaceBinding(workspace)
+        } else {
+            _ = projectModelController?.syncWorkspaceBinding(workspace)
         }
         #if DEBUG
         logWorkspaceCreationRouting(
@@ -6871,6 +7021,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             )
 #endif
             return nil
+        }
+
+        if let activeManager = tabManager,
+           let activeContext = mainWindowContexts.values.first(where: { $0.tabManager === activeManager }),
+           resolvedWindow(for: activeContext) != nil {
+#if DEBUG
+            logWorkspaceCreationRouting(
+                phase: "choose",
+                source: debugSource,
+                reason: "active_manager",
+                event: event,
+                chosenContext: activeContext
+            )
+#endif
+            return activeContext
         }
 
         if let keyWindow = NSApp.keyWindow,
@@ -7112,6 +7277,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             .environmentObject(sidebarSelectionState)
             .environmentObject(fileExplorerState)
             .environmentObject(cmuxConfigStore)
+            .environmentObject(projectModelController ?? ProjectModelController())
 
         // Use the current key window's size for new windows so Cmd+Shift+N
         // creates a window matching the previous one's dimensions.
@@ -7193,6 +7359,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             sidebarState: sidebarState,
             sidebarSelectionState: sidebarSelectionState
         )
+        if let sessionWindowSnapshot {
+            projectModelController?.restoreWorkspaceBindings(
+                snapshot: sessionWindowSnapshot.tabManager,
+                tabManager: tabManager
+            )
+        } else if let initialWorkingDirectory,
+                  let selectedWorkspace = tabManager.selectedWorkspace {
+            _ = projectModelController?.bindUserSelectedProject(
+                to: selectedWorkspace,
+                directory: initialWorkingDirectory
+            )
+        } else {
+            _ = projectModelController?.syncWorkspaceBindings(tabManager.tabs)
+        }
         installFileDropOverlay(on: window, tabManager: tabManager)
         if TerminalController.shouldSuppressSocketCommandActivation() {
             window.orderFront(nil)
@@ -11015,36 +11195,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             return true
         }
 
+        if matchConfiguredShortcut(event: event, action: .toggleTextBoxInput) {
+            tabManager?.selectedWorkspace?.toggleTextBoxMode(.default)
+            return true
+        }
+
         if matchConfiguredShortcut(event: event, action: .newTab) {
 #if DEBUG
             dlog("shortcut.action name=newWorkspace \(debugShortcutRouteSnapshot(event: event))")
 #endif
-            // Cmd+N semantics:
-            // - If there are no main windows, create a new window.
-            // - Otherwise, create a new workspace in the active window.
-            if mainWindowContexts.isEmpty {
-                #if DEBUG
-                logWorkspaceCreationRouting(
-                    phase: "fallback_new_window",
-                    source: "shortcut.cmdN",
-                    reason: "no_main_windows",
-                    event: event,
-                    chosenContext: nil
-                )
-                #endif
-                openNewMainWindow(nil)
-            } else if addWorkspaceInPreferredMainWindow(event: event, debugSource: "shortcut.cmdN") == nil {
-                #if DEBUG
-                logWorkspaceCreationRouting(
-                    phase: "fallback_new_window",
-                    source: "shortcut.cmdN",
-                    reason: "workspace_creation_returned_nil",
-                    event: event,
-                    chosenContext: nil
-                )
-                #endif
-                openNewMainWindow(nil)
-            }
+            _ = handleNewWorkspaceRequest(event: event, debugSource: "shortcut.cmdN")
             return true
         }
 

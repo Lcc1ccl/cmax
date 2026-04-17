@@ -11,6 +11,8 @@
 		FE001102 /* FileExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE001002 /* FileExplorerView.swift */; };
 		FE002101 /* FileExplorerRootResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE002001 /* FileExplorerRootResolverTests.swift */; };
 		FE002102 /* FileExplorerStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE002002 /* FileExplorerStoreTests.swift */; };
+		P0A10001A1B2C3D4E5F60719 /* ProjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = P0A10011A1B2C3D4E5F60719 /* ProjectStore.swift */; };
+		P0A10002A1B2C3D4E5F60719 /* ProjectStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P0A10012A1B2C3D4E5F60719 /* ProjectStoreTests.swift */; };
 			A5001001 /* cmuxApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001011 /* cmuxApp.swift */; };
 			A5001002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001012 /* ContentView.swift */; };
 			E62155868BB29FEB5DAAAF25 /* SidebarSelectionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD52285508B1D6A9875E7B3 /* SidebarSelectionState.swift */; };
@@ -215,6 +217,8 @@
 		FE001002 /* FileExplorerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileExplorerView.swift; sourceTree = "<group>"; };
 		FE002001 /* FileExplorerRootResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileExplorerRootResolverTests.swift; sourceTree = "<group>"; };
 		FE002002 /* FileExplorerStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileExplorerStoreTests.swift; sourceTree = "<group>"; };
+		P0A10011A1B2C3D4E5F60719 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
+		P0A10012A1B2C3D4E5F60719 /* ProjectStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStoreTests.swift; sourceTree = "<group>"; };
 			A5001000 /* cmux.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = cmux.app; sourceTree = BUILT_PRODUCTS_DIR; };
 			F1000002A1B2C3D4E5F60718 /* cmuxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = cmuxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 			7E7E6EF344A568AC7FEE3715 /* cmuxUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = cmuxUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -531,6 +535,7 @@
 				A5001651 /* CmuxConfig.swift */,
 				A5001653 /* CmuxConfigExecutor.swift */,
 				A5001655 /* CmuxDirectoryTrust.swift */,
+				P0A10011A1B2C3D4E5F60719 /* ProjectStore.swift */,
 				FE001001 /* FileExplorerStore.swift */,
 				FE001002 /* FileExplorerView.swift */,
 			);
@@ -628,6 +633,7 @@
 					491751CE2321474474F27DCF /* TerminalControllerSocketSecurityTests.swift */,
 					10D684CFFB8CDEF89CE2D9E1 /* TabManagerSessionSnapshotTests.swift */,
 					C1A2B3C4D5E6F70800000002 /* CmuxConfigTests.swift */,
+					P0A10012A1B2C3D4E5F60719 /* ProjectStoreTests.swift */,
 					FE002001 /* FileExplorerRootResolverTests.swift */,
 					FE002002 /* FileExplorerStoreTests.swift */,
 				);
@@ -862,6 +868,7 @@
 				A5001650 /* CmuxConfig.swift in Sources */,
 				A5001652 /* CmuxConfigExecutor.swift in Sources */,
 				A5001654 /* CmuxDirectoryTrust.swift in Sources */,
+				P0A10001A1B2C3D4E5F60719 /* ProjectStore.swift in Sources */,
 				FE001101 /* FileExplorerStore.swift in Sources */,
 				FE001102 /* FileExplorerView.swift in Sources */,
 			);
@@ -934,6 +941,7 @@
 					8C4BBF2DEF6DF93F395A9EE7 /* TerminalControllerSocketSecurityTests.swift in Sources */,
 					2BB56A710BB1FC50367E5BCF /* TabManagerSessionSnapshotTests.swift in Sources */,
 					C1A2B3C4D5E6F70800000001 /* CmuxConfigTests.swift in Sources */,
+					P0A10002A1B2C3D4E5F60719 /* ProjectStoreTests.swift in Sources */,
 					FE002101 /* FileExplorerRootResolverTests.swift in Sources */,
 					FE002102 /* FileExplorerStoreTests.swift in Sources */,
 				);

@@ -4739,6 +4739,42 @@ final class TerminalSurface: Identifiable, ObservableObject {
         writeTextData(data, to: surface)
     }
 
+    func focusTerminalView() {
+        guard let view = attachedView, let window = view.window else { return }
+        window.makeFirstResponder(view)
+    }
+
+    func sendSyntheticKey(
+        characters: String,
+        keyCode: UInt16,
+        modifiers: NSEvent.ModifierFlags = []
+    ) {
+        guard let view = attachedView, let window = view.window else { return }
+        if let keyDown = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: keyCode
+        ) {
+            view.keyDown(with: keyDown)
+        }
+    }
+
+    func sendKey(_ key: TextBoxKeyRouting.TerminalKey) {
+        sendSyntheticKey(characters: key.characters, keyCode: key.keyCode)
+    }
+
+    func forwardKeyEvent(_ event: NSEvent) {
+        guard let view = attachedView else { return }
+        view.keyDown(with: event)
+    }
+
     @discardableResult
     func sendNamedKey(_ keyName: String) -> Bool {
         guard let event = pendingKeyEvent(for: keyName) else { return false }
@@ -10667,6 +10703,16 @@ final class GhosttySurfaceScrollView: NSView {
             return
         }
 
+        if window.firstResponder is InputTextView {
+#if DEBUG
+            dlog(
+                "focus.ensure.skip surface=\(surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil") " +
+                "reason=textBoxFocused firstResponder=\(String(describing: window.firstResponder))"
+            )
+#endif
+            return
+        }
+
         if !window.isKeyWindow {
             guard shouldAllowEnsureFocusWindowActivation(
                 activeTabManager: delegate.tabManager,
@@ -10857,6 +10903,12 @@ final class GhosttySurfaceScrollView: NSView {
         if let fr = window.firstResponder, isSearchOverlayOrDescendant(fr) {
 #if DEBUG
             dlog("find.applyFirstResponder SKIP surface=\(surfaceShort) reason=searchOverlayFocused")
+#endif
+            return
+        }
+        if window.firstResponder is InputTextView {
+#if DEBUG
+            dlog("focus.apply.skip surface=\(surfaceShort) reason=textBoxFocused")
 #endif
             return
         }

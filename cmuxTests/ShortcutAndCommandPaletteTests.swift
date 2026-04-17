@@ -111,6 +111,30 @@ final class CommandEquivalentTransientFocusRepairTests: XCTestCase {
     }
 }
 
+final class FocusedTerminalKeyRepairPolicyTests: XCTestCase {
+    func testDoesNotRepairWhenTextBoxOwnsFirstResponder() {
+        XCTAssertFalse(
+            focusedTerminalKeyRepairNeeded(
+                responderIsWindow: false,
+                responderIsTextBox: true,
+                responderHasViableKeyRoutingOwner: true,
+                responderMatchesPreferredKeyboardFocus: false
+            )
+        )
+    }
+
+    func testRepairsWhenResponderIsWindowFallback() {
+        XCTAssertTrue(
+            focusedTerminalKeyRepairNeeded(
+                responderIsWindow: true,
+                responderIsTextBox: false,
+                responderHasViableKeyRoutingOwner: false,
+                responderMatchesPreferredKeyboardFocus: false
+            )
+        )
+    }
+}
+
 final class ReactGrabShortcutRouteTests: XCTestCase {
     func testFocusedBrowserRoutesDirectlyWithoutPasteback() {
         let browserId = UUID()

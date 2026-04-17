@@ -31,6 +31,10 @@ final class TerminalPanel: Panel, ObservableObject {
         }
     }
 
+    @Published var isTextBoxActive: Bool = TextBoxInputSettings.isEnabled()
+    @Published var textBoxContent: String = ""
+    weak var inputTextView: InputTextView?
+
     /// Bump this token to force SwiftUI to call `updateNSView` on `GhosttyTerminalView`,
     /// which re-attaches the hosted view after bonsplit close/reparent operations.
     ///

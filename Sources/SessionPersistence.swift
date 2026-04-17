@@ -335,6 +335,7 @@ struct SessionWorkspaceSnapshot: Codable, Sendable {
     var isPinned: Bool
     var terminalScrollBarHidden: Bool?
     var currentDirectory: String
+    var projectId: String?
     var focusedPanelId: UUID?
     var layout: SessionWorkspaceLayoutSnapshot
     var panels: [SessionPanelSnapshot]
@@ -342,6 +343,11 @@ struct SessionWorkspaceSnapshot: Codable, Sendable {
     var logEntries: [SessionLogEntrySnapshot]
     var progress: SessionProgressSnapshot?
     var gitBranch: SessionGitBranchSnapshot?
+}
+
+struct SessionProjectSnapshot: Codable, Equatable, Sendable {
+    var projectId: String
+    var rootPathCached: String
 }
 
 struct SessionTabManagerSnapshot: Codable, Sendable {
@@ -359,6 +365,7 @@ struct SessionWindowSnapshot: Codable, Sendable {
 struct AppSessionSnapshot: Codable, Sendable {
     var version: Int
     var createdAt: TimeInterval
+    var projects: [SessionProjectSnapshot]?
     var windows: [SessionWindowSnapshot]
 }
 

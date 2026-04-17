@@ -98,6 +98,23 @@ final class SessionPersistenceTests: XCTestCase {
         XCTAssertEqual(visibleFrame.y, 25, accuracy: 0.001)
     }
 
+    func testSaveAndLoadRoundTripPreservesProjectSnapshotsAndWorkspaceProjectId() {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-session-project-tests-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let snapshotURL = tempDir.appendingPathComponent("session.json", isDirectory: false)
+        let snapshot = makeSnapshot(version: SessionSnapshotSchema.currentVersion)
+
+        XCTAssertTrue(SessionPersistenceStore.save(snapshot, fileURL: snapshotURL))
+
+        let loaded = SessionPersistenceStore.load(fileURL: snapshotURL)
+        XCTAssertEqual(loaded?.projects?.first?.projectId, "project-1")
+        XCTAssertEqual(loaded?.projects?.first?.rootPathCached, "/tmp")
+        XCTAssertEqual(loaded?.windows.first?.tabManager.workspaces.first?.projectId, "project-1")
+    }
+
     func testSaveAndLoadRoundTripPreservesWorkspaceCustomColor() {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("cmux-session-tests-\(UUID().uuidString)", isDirectory: true)
@@ -876,9 +893,12 @@ final class SessionPersistenceTests: XCTestCase {
         let workspace = SessionWorkspaceSnapshot(
             processTitle: "Terminal",
             customTitle: "Restored",
+            customDescription: nil,
             customColor: nil,
             isPinned: true,
+            terminalScrollBarHidden: nil,
             currentDirectory: "/tmp",
+            projectId: "project-1",
             focusedPanelId: nil,
             layout: .pane(SessionPaneLayoutSnapshot(panelIds: [], selectedPanelId: nil)),
             panels: [],
@@ -907,6 +927,7 @@ final class SessionPersistenceTests: XCTestCase {
         return AppSessionSnapshot(
             version: version,
             createdAt: Date().timeIntervalSince1970,
+            projects: [SessionProjectSnapshot(projectId: "project-1", rootPathCached: "/tmp")],
             windows: [window]
         )
     }

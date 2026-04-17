@@ -894,6 +894,47 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         XCTAssertEqual(secondManager.tabs.count, secondCount + 1, "Menu-driven add workspace should still route to key window context when object-key lookup misses")
     }
 
+    func testHandleNewWorkspaceRequestUsesActiveProjectRootWhenWorkspaceIsBound() {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let projectRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-active-project-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: projectRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: projectRoot) }
+
+        let windowId = appDelegate.createMainWindow()
+        defer { closeWindow(withId: windowId) }
+
+        guard let window = window(withId: windowId),
+              let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let workspace = manager.selectedWorkspace,
+              let projectModelController = appDelegate.projectModelController else {
+            XCTFail("Expected test window, manager, selected workspace, and project controller")
+            return
+        }
+
+        window.makeKeyAndOrderFront(nil)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        let initialCount = manager.tabs.count
+        let activeProject = projectModelController.bindUserSelectedProject(
+            to: workspace,
+            directory: projectRoot.path
+        )
+
+        XCTAssertNotNil(activeProject)
+
+        let createdWorkspaceId = appDelegate.handleNewWorkspaceRequest(debugSource: "test.activeProject")
+
+        XCTAssertNotNil(createdWorkspaceId)
+        XCTAssertEqual(manager.tabs.count, initialCount + 1)
+        XCTAssertEqual(manager.selectedWorkspace?.projectId, activeProject?.projectId)
+        XCTAssertEqual(manager.selectedWorkspace?.currentDirectory, projectRoot.path)
+    }
+
     func testAddWorkspaceInPreferredMainWindowPrunesOrphanedContextWithoutLiveWindow() {
         guard let appDelegate = AppDelegate.shared else {
             XCTFail("Expected AppDelegate.shared")
