@@ -2472,6 +2472,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
 #if DEBUG
+    var debugStartupSessionSnapshotLoader: (() -> AppSessionSnapshot?)?
+    var debugShouldAttemptStartupSessionRestoreOverride: Bool?
+
     private func pointerString(_ object: AnyObject?) -> String {
         guard let object else { return "nil" }
         return String(describing: Unmanaged.passUnretained(object).toOpaque())
@@ -3780,9 +3783,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private func prepareStartupSessionSnapshotIfNeeded() {
         guard !didPrepareStartupSessionSnapshot else { return }
         didPrepareStartupSessionSnapshot = true
-        guard SessionRestorePolicy.shouldAttemptRestore() else { return }
+
+        let shouldAttemptRestore: Bool = {
+#if DEBUG
+            if let override = debugShouldAttemptStartupSessionRestoreOverride {
+                return override
+            }
+            if debugStartupSessionSnapshotLoader != nil {
+                return true
+            }
+#endif
+            return SessionRestorePolicy.shouldAttemptRestore()
+        }()
+        guard shouldAttemptRestore else { return }
+
         Self.removeLegacyPersistedWindowGeometry()
-        startupSessionSnapshot = SessionPersistenceStore.load()
+        startupSessionSnapshot = {
+#if DEBUG
+            if let loader = debugStartupSessionSnapshotLoader {
+                return loader()
+            }
+#endif
+            return SessionPersistenceStore.load()
+        }()
         projectModelController?.restoreProjectCatalog(startupSessionSnapshot?.projects ?? [])
     }
 

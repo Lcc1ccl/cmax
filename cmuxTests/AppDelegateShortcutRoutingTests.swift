@@ -109,6 +109,8 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         AppDelegate.shared?.shortcutLayoutCharacterProvider = KeyboardLayout.character(forKeyCode:modifierFlags:)
         AppDelegate.shared?.debugCloseMainWindowConfirmationHandler = nil
         AppDelegate.shared?.debugCreateMainWindowSourceIsNativeFullScreenOverride = nil
+        AppDelegate.shared?.debugStartupSessionSnapshotLoader = nil
+        AppDelegate.shared?.debugShouldAttemptStartupSessionRestoreOverride = nil
         cmuxUnitTestOpenPanelRunModalHook = nil
         cmuxUnitTestOpenPanelURLHook = nil
         AppDelegate.shared?.dismissNotificationsPopoverIfShown()
@@ -1038,6 +1040,71 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         XCTAssertEqual(manager.tabs.count, initialCount + 1)
         XCTAssertNil(manager.selectedWorkspace?.projectId)
         XCTAssertNil(projectModelController.activeProject(for: manager))
+    }
+
+    func testRegisterMainWindowRestoresStartupSnapshotBeforeConfigureRuns() {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let startupSnapshot = makeStartupSessionSnapshot(workspaceCount: 2)
+        appDelegate.debugShouldAttemptStartupSessionRestoreOverride = true
+        appDelegate.debugStartupSessionSnapshotLoader = { startupSnapshot }
+
+        let windowId = UUID()
+        let manager = TabManager()
+        let sidebarState = SidebarState()
+        let sidebarSelectionState = SidebarSelectionState()
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.identifier = NSUserInterfaceItemIdentifier("cmux.main.\(windowId.uuidString)")
+        defer { closeWindow(withId: windowId) }
+
+        XCTAssertEqual(manager.tabs.count, 1, "Test precondition: TabManager starts with one bootstrap workspace")
+
+        appDelegate.registerMainWindow(
+            window,
+            windowId: windowId,
+            tabManager: manager,
+            sidebarState: sidebarState,
+            sidebarSelectionState: sidebarSelectionState
+        )
+
+        XCTAssertEqual(manager.tabs.count, 2, "Startup session restore should replace the bootstrap workspace before the first autosave")
+        XCTAssertEqual(manager.selectedTabId, manager.tabs.last?.id, "Restored selection should survive initial window registration")
+    }
+
+    func testClosingLastTmpWorkspaceKeepsTmpWindowOpen() {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        appDelegate.debugCloseMainWindowConfirmationHandler = { _ in true }
+
+        let windowId = appDelegate.createMainWindow()
+        defer { closeWindow(withId: windowId) }
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let originalWorkspace = manager.selectedWorkspace else {
+            XCTFail("Expected window context and bootstrap workspace")
+            return
+        }
+
+        manager.confirmCloseHandler = { _, _, _ in true }
+
+        XCTAssertTrue(manager.closeWorkspaceWithConfirmation(originalWorkspace))
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        XCTAssertNotNil(window(withId: windowId), "Closing the last tmp workspace should no longer close the tmp window")
+        XCTAssertEqual(manager.tabs.count, 1, "Tmp should immediately retain a replacement workspace")
+        XCTAssertNotEqual(manager.selectedWorkspace?.id, originalWorkspace.id, "Tmp replacement should be a fresh workspace")
+        XCTAssertNil(manager.selectedWorkspace?.projectId, "Tmp replacement must remain unbound")
     }
 
     func testShowOpenFolderPanelCreatesDurableWorkspaceFromExplicitSelection() throws {
@@ -4773,6 +4840,27 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         } else {
             defaults.removeObject(forKey: key)
         }
+    }
+
+    private func makeStartupSessionSnapshot(workspaceCount: Int) -> AppSessionSnapshot {
+        let manager = TabManager(initialWorkingDirectory: "/tmp/cmux-startup-restore")
+        while manager.tabs.count < workspaceCount {
+            _ = manager.addWorkspace()
+        }
+
+        return AppSessionSnapshot(
+            version: SessionSnapshotSchema.currentVersion,
+            createdAt: Date().timeIntervalSince1970,
+            projects: nil,
+            windows: [
+                SessionWindowSnapshot(
+                    frame: SessionRectSnapshot(x: 10, y: 20, width: 900, height: 700),
+                    display: nil,
+                    tabManager: manager.sessionSnapshot(includeScrollback: false),
+                    sidebar: SessionSidebarSnapshot(isVisible: true, selection: .tabs, width: 200)
+                )
+            ]
+        )
     }
 }
 
