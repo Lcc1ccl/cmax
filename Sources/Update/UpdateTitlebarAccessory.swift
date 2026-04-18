@@ -558,7 +558,7 @@ struct HiddenTitlebarSidebarControlsView: View {
                     anchorView: viewModel.notificationsAnchorView
                 )
             },
-            onNewTab: { _ = AppDelegate.shared?.tabManager?.addTab() },
+            onNewTab: { _ = AppDelegate.shared?.handleNewWorkspaceRequest(debugSource: "titlebar.newWorkspace") },
             visibilityMode: .onHover
         )
         .frame(width: hostWidth, height: hostHeight, alignment: .leading)

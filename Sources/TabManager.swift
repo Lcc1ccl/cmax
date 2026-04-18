@@ -4134,6 +4134,10 @@ class TabManager: ObservableObject {
             return
         }
         if tabs.count <= 1 {
+            if workspace.projectId == nil {
+                replaceLastTemporaryWorkspace(workspace)
+                return
+            }
             // Last workspace in this window: close the window (Cmd+Shift+W behavior).
             if let window {
                 window.performClose(nil)
@@ -4143,6 +4147,31 @@ class TabManager: ObservableObject {
         } else {
             closeWorkspace(workspace)
         }
+    }
+
+    private func replaceLastTemporaryWorkspace(_ workspace: Workspace) {
+        sentryBreadcrumb("workspace.replaceLastTmp", data: ["tabCount": 1])
+        clearWorkspaceGitProbes(workspaceId: workspace.id)
+        clearWorkspacePullRequestTracking(workspaceId: workspace.id)
+        sidebarSelectedWorkspaceIds.remove(workspace.id)
+        AppDelegate.shared?.notificationStore?.clearNotifications(forTabId: workspace.id)
+        workspace.teardownAllPanels()
+        workspace.teardownRemoteConnection()
+        unwireClosedBrowserTracking(for: workspace)
+        workspace.owningTabManager = nil
+        lastFocusedPanelByTab.removeValue(forKey: workspace.id)
+
+        let ordinal = Self.nextPortOrdinal
+        Self.nextPortOrdinal += 1
+        let replacement = Workspace(title: "Terminal 1", portOrdinal: ordinal)
+        replacement.owningTabManager = self
+        wireClosedBrowserTracking(for: replacement)
+
+        tabs = [replacement]
+        selectedTabId = replacement.id
+        sidebarSelectedWorkspaceIds = []
+        let existingIds = Set([replacement.id])
+        pruneBackgroundWorkspaceLoads(existingIds: existingIds)
     }
 
     private func shouldCloseWorkspaceOnLastSurfaceShortcut(_ workspace: Workspace, panelId: UUID) -> Bool {

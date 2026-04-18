@@ -343,6 +343,7 @@ struct cmuxApp: App {
     }
 
     var body: some Scene {
+        let _ = synchronizeAppDelegateSharedState()
         WindowGroup {
             ContentView(updateViewModel: appDelegate.updateViewModel, windowId: primaryWindowId)
                 .environmentObject(tabManager)
@@ -358,11 +359,10 @@ struct cmuxApp: App {
                         UpdateLogStore.shared.append("ui test: cmuxApp onAppear")
                     }
 #endif
+                    synchronizeAppDelegateSharedState()
                     // Start the Unix socket controller for programmatic access
                     updateSocketController()
                     appDelegate.configure(tabManager: tabManager, notificationStore: notificationStore, sidebarState: sidebarState)
-                    appDelegate.fileExplorerState = fileExplorerState
-                    appDelegate.projectModelController = projectModelController
                     cmuxConfigStore.wireDirectoryTracking(tabManager: tabManager)
                     cmuxConfigStore.loadAll()
                     applyAppearance()
@@ -841,6 +841,11 @@ struct cmuxApp: App {
                 }
             }
         }
+    }
+
+    private func synchronizeAppDelegateSharedState() {
+        appDelegate.fileExplorerState = fileExplorerState
+        appDelegate.projectModelController = projectModelController
     }
 
     private func showAboutPanel() {
