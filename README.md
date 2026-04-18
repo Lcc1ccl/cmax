@@ -149,6 +149,7 @@ For more info on how to configure cmux, [head over to our docs](https://cmux.com
 | Shortcut | Action |
 |----------|--------|
 | ⌘ N | New workspace |
+| ⌘ O | Open folder |
 | ⌘ 1–8 | Jump to workspace 1–8 |
 | ⌘ 9 | Jump to last workspace |
 | ⌃ ⌘ ] | Next workspace |
@@ -156,6 +157,8 @@ For more info on how to configure cmux, [head over to our docs](https://cmux.com
 | ⌘ ⇧ W | Close workspace |
 | ⌘ ⇧ R | Rename workspace |
 | ⌘ B | Toggle sidebar |
+
+Use **⌘O** when you want to explicitly choose a folder for the next workspace.
 
 ### Surfaces
 

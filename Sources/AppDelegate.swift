@@ -6894,10 +6894,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
         }
 
-        return showProjectDirectoryPanel(
-            targetContext: context,
-            debugSource: debugSource
-        )
+        if let context {
+            return createWorkspace(
+                in: context,
+                workingDirectory: nil,
+                shouldBringToFront: false,
+                event: event,
+                debugSource: debugSource
+            )
+        }
+
+        let windowId = createMainWindow()
+        return tabManagerFor(windowId: windowId)?.selectedWorkspace?.id
     }
 
     @discardableResult
@@ -6982,8 +6990,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         } else if let projectId,
                   let project = projectModelController?.project(id: projectId) {
             workspace.projectId = project.projectId
-            _ = projectModelController?.syncWorkspaceBinding(workspace)
-        } else {
             _ = projectModelController?.syncWorkspaceBinding(workspace)
         }
         #if DEBUG
@@ -7370,8 +7376,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 to: selectedWorkspace,
                 directory: initialWorkingDirectory
             )
-        } else {
-            _ = projectModelController?.syncWorkspaceBindings(tabManager.tabs)
         }
         installFileDropOverlay(on: window, tabManager: tabManager)
         if TerminalController.shouldSuppressSocketCommandActivation() {

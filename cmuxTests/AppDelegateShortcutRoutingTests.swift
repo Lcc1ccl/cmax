@@ -1,4 +1,6 @@
 import XCTest
+import AppKit
+import ObjectiveC.runtime
 
 #if canImport(cmux_DEV)
 @testable import cmux_DEV
@@ -7,9 +9,51 @@ import XCTest
 #endif
 
 private let appDelegateLastSurfaceCloseShortcutDefaultsKey = "closeWorkspaceOnLastSurfaceShortcut"
+private var cmuxUnitTestOpenPanelHooksInstalled = false
+private var cmuxUnitTestOpenPanelRunModalHook: ((NSOpenPanel) -> NSApplication.ModalResponse)?
+private var cmuxUnitTestOpenPanelURLHook: ((NSOpenPanel) -> URL?)?
 private final class FakeWKInspectorContainerView: NSView {}
 private final class FocusableTestView: NSView {
     override var acceptsFirstResponder: Bool { true }
+}
+
+private extension NSOpenPanel {
+    @objc func cmuxUnitTest_runModal() -> NSApplication.ModalResponse {
+        if let hook = cmuxUnitTestOpenPanelRunModalHook {
+            return hook(self)
+        }
+        return cmuxUnitTest_runModal()
+    }
+
+    @objc func cmuxUnitTest_url() -> URL? {
+        if let hook = cmuxUnitTestOpenPanelURLHook {
+            return hook(self)
+        }
+        return cmuxUnitTest_url()
+    }
+}
+
+private func installCmuxUnitTestOpenPanelHooks() {
+    guard !cmuxUnitTestOpenPanelHooksInstalled else { return }
+
+    let runModalSelector = #selector(NSOpenPanel.runModal)
+    let swizzledRunModalSelector = #selector(NSOpenPanel.cmuxUnitTest_runModal)
+    guard let originalRunModalMethod = class_getInstanceMethod(NSOpenPanel.self, runModalSelector),
+          let swizzledRunModalMethod = class_getInstanceMethod(NSOpenPanel.self, swizzledRunModalSelector) else {
+        fatalError("Unable to locate NSOpenPanel runModal methods for swizzling")
+    }
+
+    method_exchangeImplementations(originalRunModalMethod, swizzledRunModalMethod)
+
+    let urlSelector = #selector(getter: NSOpenPanel.url)
+    let swizzledURLSelector = #selector(NSOpenPanel.cmuxUnitTest_url)
+    guard let originalURLMethod = class_getInstanceMethod(NSOpenPanel.self, urlSelector),
+          let swizzledURLMethod = class_getInstanceMethod(NSOpenPanel.self, swizzledURLSelector) else {
+        fatalError("Unable to locate NSOpenPanel url getter methods for swizzling")
+    }
+
+    method_exchangeImplementations(originalURLMethod, swizzledURLMethod)
+    cmuxUnitTestOpenPanelHooksInstalled = true
 }
 
 @MainActor
@@ -43,6 +87,7 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        installCmuxUnitTestOpenPanelHooks()
         // Prevent a single hanging test from consuming the entire CI timeout budget.
         executionTimeAllowance = 30
         actionsWithPersistedShortcut = Set(
@@ -64,6 +109,8 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         AppDelegate.shared?.shortcutLayoutCharacterProvider = KeyboardLayout.character(forKeyCode:modifierFlags:)
         AppDelegate.shared?.debugCloseMainWindowConfirmationHandler = nil
         AppDelegate.shared?.debugCreateMainWindowSourceIsNativeFullScreenOverride = nil
+        cmuxUnitTestOpenPanelRunModalHook = nil
+        cmuxUnitTestOpenPanelURLHook = nil
         AppDelegate.shared?.dismissNotificationsPopoverIfShown()
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         for action in KeyboardShortcutSettings.Action.allCases {
@@ -933,6 +980,109 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         XCTAssertEqual(manager.tabs.count, initialCount + 1)
         XCTAssertEqual(manager.selectedWorkspace?.projectId, activeProject?.projectId)
         XCTAssertEqual(manager.selectedWorkspace?.currentDirectory, projectRoot.path)
+    }
+
+    func testCreateMainWindowLeavesDefaultWorkspaceInTmpSection() {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let windowId = appDelegate.createMainWindow()
+        defer { closeWindow(withId: windowId) }
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let workspace = manager.selectedWorkspace,
+              let projectModelController = appDelegate.projectModelController else {
+            XCTFail("Expected window context, selected workspace, and project controller")
+            return
+        }
+
+        let sections = projectModelController.sidebarSections(for: manager.tabs)
+
+        XCTAssertNil(workspace.projectId)
+        XCTAssertNil(projectModelController.activeProject(for: manager))
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.workspaces.map(\.id), [workspace.id])
+        XCTAssertNil(sections.first?.project.missingProject)
+    }
+
+    func testHandleNewWorkspaceRequestOnTmpWorkspaceAddsUnboundWorkspaceWithoutPrompting() {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        var openPanelInvocationCount = 0
+        cmuxUnitTestOpenPanelRunModalHook = { _ in
+            openPanelInvocationCount += 1
+            return .cancel
+        }
+        cmuxUnitTestOpenPanelURLHook = { _ in nil }
+
+        let windowId = appDelegate.createMainWindow()
+        defer { closeWindow(withId: windowId) }
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let projectModelController = appDelegate.projectModelController else {
+            XCTFail("Expected window context and project controller")
+            return
+        }
+
+        let initialCount = manager.tabs.count
+
+        let createdWorkspaceId = appDelegate.handleNewWorkspaceRequest(debugSource: "test.tmpWorkspace")
+
+        XCTAssertNotNil(createdWorkspaceId)
+        XCTAssertEqual(openPanelInvocationCount, 0)
+        XCTAssertEqual(manager.tabs.count, initialCount + 1)
+        XCTAssertNil(manager.selectedWorkspace?.projectId)
+        XCTAssertNil(projectModelController.activeProject(for: manager))
+    }
+
+    func testShowOpenFolderPanelCreatesDurableWorkspaceFromExplicitSelection() throws {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-open-folder-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        var openPanelInvocationCount = 0
+        cmuxUnitTestOpenPanelRunModalHook = { _ in
+            openPanelInvocationCount += 1
+            return .OK
+        }
+        cmuxUnitTestOpenPanelURLHook = { _ in directoryURL }
+
+        let windowId = appDelegate.createMainWindow()
+        defer { closeWindow(withId: windowId) }
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let projectModelController = appDelegate.projectModelController,
+              let window = window(withId: windowId) else {
+            XCTFail("Expected window context, window, and project controller")
+            return
+        }
+
+        window.makeKeyAndOrderFront(nil)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        let initialCount = manager.tabs.count
+
+        appDelegate.showOpenFolderPanel()
+
+        XCTAssertEqual(openPanelInvocationCount, 1)
+        XCTAssertEqual(manager.tabs.count, initialCount + 1)
+        XCTAssertEqual(manager.selectedWorkspace?.currentDirectory, directoryURL.path)
+        XCTAssertNotNil(manager.selectedWorkspace?.projectId)
+        XCTAssertEqual(
+            projectModelController.project(id: manager.selectedWorkspace?.projectId)?.rootPathCached,
+            directoryURL.path
+        )
     }
 
     func testAddWorkspaceInPreferredMainWindowPrunesOrphanedContextWithoutLiveWindow() {

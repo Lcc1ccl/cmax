@@ -15,6 +15,19 @@ struct ProjectRecord: Equatable, Identifiable, Sendable {
     var isMissing: Bool { missingProject != nil }
 }
 
+private enum TemporaryProjectSentinel {
+    static let projectId = "temp:shared-tmp"
+    static let rootPathCached = "tmp"
+    static let displayName = "tmp"
+
+    static let record = ProjectRecord(
+        projectId: projectId,
+        rootPathCached: rootPathCached,
+        displayName: displayName,
+        missingProject: nil
+    )
+}
+
 enum ProjectPathResolutionMode: Sendable {
     case explicitSelection
     case inferredWorkspace
@@ -369,28 +382,11 @@ final class ProjectModelController: ObservableObject {
     }
 
     func displayProject(for workspace: Workspace) -> ProjectRecord? {
-        if let project = project(id: workspace.projectId) ?? project(for: workspace.id) {
+        if let projectId = workspace.projectId,
+           let project = project(id: projectId) {
             return project
         }
-
-        // Sidebar rendering can re-evaluate frequently during typing/dragging. Avoid
-        // synchronous git-root probing here; render a temporary path-honoring project
-        // label first, then let syncWorkspaceBinding establish the durable inferred root.
-        if let candidate = ActiveProjectResolver.candidateDirectories(context: activeContext(for: workspace)).first,
-           let result = ProjectResolver.resolve(
-                directory: candidate,
-                resolutionMode: .explicitSelection,
-                environment: projectStoreEnvironment
-           ) {
-            return ProjectRecord(
-                projectId: "temp:\(result.rootPath)",
-                rootPathCached: result.rootPath,
-                displayName: result.displayName,
-                missingProject: result.missingProject
-            )
-        }
-
-        return nil
+        return TemporaryProjectSentinel.record
     }
 
     func sidebarSections(for workspaces: [Workspace]) -> [SidebarProjectSection] {
@@ -398,12 +394,7 @@ final class ProjectModelController: ObservableObject {
         var indexByProjectId: [String: Int] = [:]
 
         for workspace in workspaces {
-            let project = displayProject(for: workspace) ?? ProjectRecord(
-                projectId: "workspace:\(workspace.id.uuidString)",
-                rootPathCached: workspace.currentDirectory,
-                displayName: workspace.title,
-                missingProject: nil
-            )
+            let project = displayProject(for: workspace) ?? TemporaryProjectSentinel.record
 
             if let index = indexByProjectId[project.id] {
                 sections[index].workspaces.append(workspace)
@@ -441,23 +432,13 @@ final class ProjectModelController: ObservableObject {
 
     @discardableResult
     func syncWorkspaceBinding(_ workspace: Workspace) -> ProjectRecord? {
-        if let project = project(id: workspace.projectId) {
+        if let projectId = workspace.projectId,
+           let project = project(id: projectId) {
             bind(project: project, to: workspace, shouldPublish: false)
             return project
         }
-        if let project = project(for: workspace.id) {
-            bind(project: project, to: workspace, shouldPublish: false)
-            return project
-        }
-        guard let project = ActiveProjectResolver.resolve(
-            context: activeContext(for: workspace),
-            projectStore: projectStore,
-            workspaceBindingStore: workspaceBindingStore
-        ) else {
-            return nil
-        }
-        bind(project: project, to: workspace)
-        return project
+        clearWorkspaceBinding(for: workspace)
+        return nil
     }
 
     func activeProject(for tabManager: TabManager) -> ProjectRecord? {
@@ -481,12 +462,11 @@ final class ProjectModelController: ObservableObject {
 
     func restoreWorkspaceBindings(snapshot: SessionTabManagerSnapshot, tabManager: TabManager) {
         for (workspaceSnapshot, workspace) in zip(snapshot.workspaces, tabManager.tabs) {
-            workspace.projectId = workspaceSnapshot.projectId
             if let projectId = workspaceSnapshot.projectId,
                let project = projectStore.project(id: projectId) {
                 bind(project: project, to: workspace, shouldPublish: false)
             } else {
-                _ = syncWorkspaceBinding(workspace)
+                clearWorkspaceBinding(for: workspace, shouldPublish: false)
             }
         }
         publishChange()
@@ -494,9 +474,7 @@ final class ProjectModelController: ObservableObject {
 
     func snapshotProjects(for workspaces: [Workspace]) -> [SessionProjectSnapshot] {
         _ = syncWorkspaceBindings(workspaces)
-        let projectIds = Set(workspaces.compactMap { workspace in
-            workspace.projectId ?? workspaceBindingStore.projectId(for: workspace.id)
-        })
+        let projectIds = Set(workspaces.compactMap(\.projectId))
         return projectIds
             .compactMap { projectId in
                 projectStore.project(id: projectId).map { project in
@@ -535,41 +513,21 @@ final class ProjectModelController: ObservableObject {
         }
     }
 
+    @discardableResult
+    private func clearWorkspaceBinding(
+        for workspace: Workspace,
+        shouldPublish: Bool = true
+    ) -> Bool {
+        let didChange = workspace.projectId != nil || workspaceBindingStore.projectId(for: workspace.id) != nil
+        workspace.projectId = nil
+        workspaceBindingStore.unbind(workspaceId: workspace.id)
+        if didChange && shouldPublish {
+            publishChange()
+        }
+        return didChange
+    }
+
     private func publishChange() {
         revision &+= 1
-    }
-
-    private var projectStoreEnvironment: ProjectResolver.Environment {
-        .init(
-            homeDirectoryPath: FileManager.default.homeDirectoryForCurrentUser.path,
-            directoryExists: { path in
-                var isDirectory: ObjCBool = false
-                return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
-            },
-            gitRootResolver: { _ in nil }
-        )
-    }
-
-    private func activeContext(for workspace: Workspace) -> ActiveProjectResolver.Context {
-        let orderedPanelIds = workspace.sidebarOrderedPanelIds()
-        let requestedPanelDirectories: [UUID: String] = Dictionary(
-            uniqueKeysWithValues: orderedPanelIds.compactMap { panelId in
-                let requestedDirectory = workspace.terminalPanel(for: panelId)?
-                    .requestedWorkingDirectory?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                guard let requestedDirectory, !requestedDirectory.isEmpty else {
-                    return nil
-                }
-                return (panelId, requestedDirectory)
-            }
-        )
-        return ActiveProjectResolver.Context(
-            workspaceId: workspace.id,
-            focusedPanelId: workspace.focusedPanelId,
-            orderedPanelIds: orderedPanelIds,
-            panelDirectories: workspace.panelDirectories,
-            requestedPanelDirectories: requestedPanelDirectories,
-            currentDirectory: workspace.currentDirectory
-        )
     }
 }

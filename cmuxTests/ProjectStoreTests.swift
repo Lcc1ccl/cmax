@@ -250,6 +250,51 @@ final class ActiveProjectResolverTests: XCTestCase {
 
 @MainActor
 final class ProjectModelControllerTests: XCTestCase {
+    func testSyncWorkspaceBindingLeavesNilProjectWorkspaceUnboundAndClearsStaleBinding() {
+        _ = NSApplication.shared
+        let controller = ProjectModelController(
+            environment: .init(
+                homeDirectoryPath: nil,
+                directoryExists: { _ in true },
+                gitRootResolver: { _ in "/tmp/app" }
+            )
+        )
+        let workspace = Workspace(title: "Tmp", workingDirectory: "/tmp/app")
+
+        let boundProject = controller.bindUserSelectedProject(to: workspace, directory: "/tmp/app")
+        XCTAssertEqual(workspace.projectId, boundProject?.projectId)
+        XCTAssertEqual(controller.project(for: workspace.id)?.projectId, boundProject?.projectId)
+
+        workspace.projectId = nil
+
+        let resolved = controller.syncWorkspaceBinding(workspace)
+
+        XCTAssertNil(resolved)
+        XCTAssertNil(workspace.projectId)
+        XCTAssertNil(controller.project(for: workspace.id))
+    }
+
+    func testDisplayProjectUsesSharedTmpSentinelForNilProjectWorkspaces() {
+        _ = NSApplication.shared
+        let controller = ProjectModelController(
+            environment: .init(
+                homeDirectoryPath: nil,
+                directoryExists: { _ in true },
+                gitRootResolver: { _ in nil }
+            )
+        )
+        let firstWorkspace = Workspace(title: "One", workingDirectory: "/tmp/one")
+        let secondWorkspace = Workspace(title: "Two", workingDirectory: "/tmp/two")
+
+        let firstDisplay = controller.displayProject(for: firstWorkspace)
+        let secondDisplay = controller.displayProject(for: secondWorkspace)
+
+        XCTAssertEqual(firstDisplay?.projectId, secondDisplay?.projectId)
+        XCTAssertEqual(firstDisplay?.displayName, secondDisplay?.displayName)
+        XCTAssertNil(firstDisplay?.missingProject)
+        XCTAssertNil(secondDisplay?.missingProject)
+    }
+
     func testSidebarSectionsGroupWorkspacesByResolvedProject() {
         _ = NSApplication.shared
         let controller = ProjectModelController(
@@ -275,6 +320,64 @@ final class ProjectModelControllerTests: XCTestCase {
         XCTAssertEqual(sections.count, 1)
         XCTAssertEqual(sections.first?.project.rootPathCached, "/tmp/app")
         XCTAssertEqual(sections.first?.workspaces.map(\.id), [firstWorkspace.id, secondWorkspace.id])
+    }
+
+    func testSidebarSectionsMergeNilProjectWorkspacesIntoSharedTmpSection() {
+        _ = NSApplication.shared
+        let controller = ProjectModelController(
+            environment: .init(
+                homeDirectoryPath: nil,
+                directoryExists: { _ in true },
+                gitRootResolver: { _ in nil }
+            )
+        )
+        let firstWorkspace = Workspace(title: "One", workingDirectory: "/tmp/one")
+        let secondWorkspace = Workspace(title: "Two", workingDirectory: "/tmp/two")
+
+        let sections = controller.sidebarSections(for: [firstWorkspace, secondWorkspace])
+
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.workspaces.map(\.id), [firstWorkspace.id, secondWorkspace.id])
+        XCTAssertNil(sections.first?.project.missingProject)
+    }
+
+    func testActiveProjectReturnsNilForTmpWorkspace() {
+        _ = NSApplication.shared
+        let controller = ProjectModelController(
+            environment: .init(
+                homeDirectoryPath: nil,
+                directoryExists: { _ in true },
+                gitRootResolver: { _ in "/tmp/app" }
+            )
+        )
+        let tabManager = TabManager(initialWorkingDirectory: "/tmp/app")
+
+        let activeProject = controller.activeProject(for: tabManager)
+
+        XCTAssertNil(activeProject)
+        XCTAssertNil(tabManager.selectedWorkspace?.projectId)
+    }
+
+    func testSnapshotProjectsSkipsTmpWorkspaceWithoutDurableBinding() {
+        _ = NSApplication.shared
+        let controller = ProjectModelController(
+            environment: .init(
+                homeDirectoryPath: nil,
+                directoryExists: { _ in true },
+                gitRootResolver: { path in
+                    path.hasPrefix("/tmp/durable") ? "/tmp/durable" : nil
+                }
+            )
+        )
+        let tmpWorkspace = Workspace(title: "Tmp", workingDirectory: "/tmp/tmp-only")
+        let durableWorkspace = Workspace(title: "Durable", workingDirectory: "/tmp/durable")
+        let durableProject = controller.bindUserSelectedProject(to: durableWorkspace, directory: "/tmp/durable")
+
+        let snapshots = controller.snapshotProjects(for: [tmpWorkspace, durableWorkspace])
+
+        XCTAssertEqual(snapshots.map(\.projectId), [durableProject?.projectId].compactMap { $0 })
+        XCTAssertEqual(snapshots.map(\.rootPathCached), ["/tmp/durable"])
+        XCTAssertNil(tmpWorkspace.projectId)
     }
 
     func testSnapshotProjectsRoundTripsStableProjectId() {
@@ -329,5 +432,53 @@ final class ProjectModelControllerTests: XCTestCase {
 
         XCTAssertEqual(restoredController.project(id: boundProject?.projectId)?.rootPathCached, "/tmp/app")
         XCTAssertEqual(snapshots.first?.projectId, boundProject?.projectId)
+    }
+
+    func testRestoreWorkspaceBindingsKeepsNilProjectWorkspaceUnbound() {
+        _ = NSApplication.shared
+        let controller = ProjectModelController(
+            environment: .init(
+                homeDirectoryPath: nil,
+                directoryExists: { _ in true },
+                gitRootResolver: { _ in "/tmp/app" }
+            )
+        )
+        let tabManager = TabManager(initialWorkingDirectory: "/tmp/app")
+        guard let workspace = tabManager.selectedWorkspace else {
+            XCTFail("Expected selected workspace")
+            return
+        }
+
+        let boundProject = controller.bindUserSelectedProject(to: workspace, directory: "/tmp/app")
+        XCTAssertEqual(controller.project(for: workspace.id)?.projectId, boundProject?.projectId)
+
+        controller.restoreWorkspaceBindings(
+            snapshot: SessionTabManagerSnapshot(
+                selectedWorkspaceIndex: 0,
+                workspaces: [
+                    SessionWorkspaceSnapshot(
+                        processTitle: "Terminal",
+                        customTitle: nil,
+                        customDescription: nil,
+                        customColor: nil,
+                        isPinned: false,
+                        terminalScrollBarHidden: nil,
+                        currentDirectory: "/tmp/app",
+                        projectId: nil,
+                        focusedPanelId: nil,
+                        layout: .pane(SessionPaneLayoutSnapshot(panelIds: [], selectedPanelId: nil)),
+                        panels: [],
+                        statusEntries: [],
+                        logEntries: [],
+                        progress: nil,
+                        gitBranch: nil
+                    )
+                ]
+            ),
+            tabManager: tabManager
+        )
+
+        XCTAssertNil(workspace.projectId)
+        XCTAssertNil(controller.project(for: workspace.id))
     }
 }

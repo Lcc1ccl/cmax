@@ -134,6 +134,28 @@ final class SessionPersistenceTests: XCTestCase {
         )
     }
 
+    func testSaveAndLoadRoundTripOmitsTmpDurableProjectArtifactsWhenWorkspaceProjectIdIsNil() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-session-nil-project-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let snapshotURL = tempDir.appendingPathComponent("session.json", isDirectory: false)
+        var snapshot = makeSnapshot(version: SessionSnapshotSchema.currentVersion)
+        snapshot.windows[0].tabManager.workspaces[0].projectId = nil
+        snapshot.projects = nil
+
+        XCTAssertTrue(SessionPersistenceStore.save(snapshot, fileURL: snapshotURL))
+
+        let rawJSON = try String(contentsOf: snapshotURL, encoding: .utf8)
+        XCTAssertFalse(rawJSON.contains(#""projectId""#))
+        XCTAssertFalse(rawJSON.contains(#""projects""#))
+
+        let loaded = SessionPersistenceStore.load(fileURL: snapshotURL)
+        XCTAssertNil(loaded?.projects)
+        XCTAssertNil(loaded?.windows.first?.tabManager.workspaces.first?.projectId)
+    }
+
     func testSaveSkipsRewritingIdenticalSnapshotData() throws {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("cmux-session-tests-\(UUID().uuidString)", isDirectory: true)
