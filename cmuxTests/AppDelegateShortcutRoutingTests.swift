@@ -1152,6 +1152,57 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         )
     }
 
+    func testTitlebarNewWorkspaceUsesProjectAwareRouting() throws {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-titlebar-project-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        let windowId = appDelegate.createMainWindow()
+        defer { closeWindow(withId: windowId) }
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let projectModelController = appDelegate.projectModelController,
+              let window = window(withId: windowId) else {
+            XCTFail("Expected window context, project controller, and window")
+            return
+        }
+
+        let durableProject = try XCTUnwrap(
+            projectModelController.bindUserSelectedProject(
+                to: try XCTUnwrap(manager.selectedWorkspace),
+                directory: directoryURL.path
+            )
+        )
+
+        appDelegate.attachUpdateAccessory(to: window)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        guard let controls = window.titlebarAccessoryViewControllers
+            .compactMap({ $0 as? TitlebarControlsAccessoryViewController })
+            .first(where: { $0.view.identifier?.rawValue == "cmux.titlebarControls" }) else {
+            XCTFail("Expected titlebar controls accessory")
+            return
+        }
+
+#if DEBUG
+        let createdWorkspaceId = controls.debugInvokeNewWorkspaceActionForTesting()
+#else
+        let createdWorkspaceId: UUID? = nil
+        XCTFail("debugInvokeNewWorkspaceActionForTesting is only available in DEBUG")
+#endif
+
+        XCTAssertNotNil(createdWorkspaceId)
+        XCTAssertEqual(manager.tabs.count, 2)
+        XCTAssertEqual(manager.selectedWorkspace?.projectId, durableProject.projectId)
+        XCTAssertEqual(manager.selectedWorkspace?.currentDirectory, directoryURL.path)
+    }
+
     func testAddWorkspaceInPreferredMainWindowPrunesOrphanedContextWithoutLiveWindow() {
         guard let appDelegate = AppDelegate.shared else {
             XCTFail("Expected AppDelegate.shared")

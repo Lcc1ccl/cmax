@@ -791,7 +791,7 @@ final class TitlebarControlsAccessoryViewController: NSTitlebarAccessoryViewCont
         self.notificationStore = notificationStore
         let toggleSidebar = { _ = AppDelegate.shared?.sidebarState?.toggle() }
         let toggleNotifications: () -> Void = { _ = AppDelegate.shared?.toggleNotificationsPopover(animated: true) }
-        let newTab = { _ = AppDelegate.shared?.tabManager?.addTab() }
+        let newTab = { _ = AppDelegate.shared?.handleNewWorkspaceRequest(debugSource: "titlebar.newWorkspace") }
         hostingView = NonDraggableHostingView(
             rootView: TitlebarControlsView(
                 notificationStore: notificationStore,
@@ -1004,6 +1004,13 @@ final class TitlebarControlsAccessoryViewController: NSTitlebarAccessoryViewCont
             notificationsPopover.performClose(nil)
         }
     }
+
+#if DEBUG
+    @discardableResult
+    func debugInvokeNewWorkspaceActionForTesting() -> UUID? {
+        AppDelegate.shared?.handleNewWorkspaceRequest(debugSource: "titlebar.newWorkspace")
+    }
+#endif
 
     private func makeNotificationsPopover() -> NSPopover {
         let popover = NSPopover()
