@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
 
 export function useMobileDrawer() {
   const [open, setOpen] = useState(false);
@@ -89,6 +90,8 @@ export function MobileDrawerToggle({
   buttonRef: React.RefObject<HTMLButtonElement | null>;
   className?: string;
 }) {
+  const t = useTranslations("common");
+
   return (
     <button
       ref={buttonRef}
@@ -98,7 +101,7 @@ export function MobileDrawerToggle({
         className ??
         "min-[940px]:hidden w-8 h-8 flex items-center justify-center text-muted hover:text-foreground transition-colors"
       }
-      aria-label={open ? "Close menu" : "Open menu"}
+      aria-label={open ? t("closeMenu") : t("openMenu")}
     >
       <svg
         width="16"

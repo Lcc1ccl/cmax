@@ -86,6 +86,7 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   const messages = await getMessages();
+  const t = await getTranslations({ locale, namespace: "meta" });
 
   const dir = locale === "ar" ? "rtl" : "ltr";
 
@@ -98,8 +99,7 @@ export default async function LocaleLayout({
     url: "https://cmux.com",
     downloadUrl:
       "https://github.com/manaflow-ai/cmux/releases/latest/download/cmux-macos.dmg",
-    description:
-      "Native macOS terminal built on Ghostty. Works with Claude Code, Codex, OpenCode, Gemini CLI, Kiro, Aider, and any CLI tool. Vertical tabs, notification rings, split panes, and a socket API.",
+    description: t("description"),
     keywords:
       "terminal, macOS, Claude Code, Codex, OpenCode, Gemini CLI, Kiro, Aider, AI coding agents, Ghostty",
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },

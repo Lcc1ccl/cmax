@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 import { buildAlternates } from "../../../i18n/seo";
 import { DocsNav } from "./docs-nav";
 import { SiteHeader } from "../components/site-header";
@@ -28,9 +29,11 @@ export default function DocsLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("nav");
+
   return (
     <div className="min-h-screen">
-      <SiteHeader section="docs" />
+      <SiteHeader section={t("docs")} />
       <DocsNav>{children}</DocsNav>
     </div>
   );

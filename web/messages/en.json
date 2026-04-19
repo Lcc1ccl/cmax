@@ -12,7 +12,9 @@
     "toggleTheme": "Toggle theme",
     "backToBlog": "Back to blog",
     "readTheDocs": "Read the Docs",
-    "viewChangelog": "View Changelog"
+    "viewChangelog": "View Changelog",
+    "language": "Language",
+    "mainNavigation": "Main navigation"
   },
   "nav": {
     "docs": "Docs",
@@ -167,7 +169,14 @@
         "summary": "One command gives you persistent remote sessions, browser panes that reach remote ports, and agent notifications that come home.",
         "date": "March 30, 2026",
         "p1": "<code>cmux ssh user@remote</code> creates a workspace for the remote machine. Drag an image into a remote Claude Code session and it gets uploaded automatically. Browser panes route through the remote network, so localhost just works. Uses your <code>~/.ssh/config</code>, reconnects on drops.",
-        "features": "Browser panes route traffic through the remote network, so localhost:3000 reaches the remote dev server without -L flags. Coding agents on the remote box send notifications to your local sidebar. cmux claude-teams and cmux omo work over SSH, spawning teammate panes locally while computation runs remote. Drag a file into a remote terminal to upload via scp. The sidebar shows connection state and detected listening ports."
+        "features": "Browser panes route traffic through the remote network, so localhost:3000 reaches the remote dev server without -L flags. Coding agents on the remote box send notifications to your local sidebar. cmux claude-teams and cmux omo work over SSH, spawning teammate panes locally while computation runs remote. Drag a file into a remote terminal to upload via scp. The sidebar shows connection state and detected listening ports.",
+        "feature1": "Browser panes route through the remote machine, so localhost:3000 reaches the remote dev server without port forwarding.",
+        "feature2": "Drag an image into a remote terminal to upload it via scp.",
+        "feature3": "Coding agents on the remote box send notifications to your local sidebar.",
+        "feature4": "cmux claude-teams and cmux omo work over SSH, spawning teammate panes locally while computation runs remote.",
+        "feature5": "The sidebar shows connection state and detected listening ports.",
+        "videoTitle": "cmux SSH demo",
+        "readSshDocs": "Read the SSH docs"
       },
       "cmdShiftU": {
         "title": "Cmd+Shift+U",

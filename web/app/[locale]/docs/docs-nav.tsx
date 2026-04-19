@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { DocsSidebar } from "../components/docs-sidebar";
 import { DocsPager } from "../components/docs-pager";
 import {
@@ -8,6 +9,8 @@ import {
 } from "../components/mobile-drawer";
 
 export function DocsNav({ children }: { children: React.ReactNode }) {
+  const tCommon = useTranslations("common");
+  const tNav = useTranslations("nav");
   const { open, toggle, close, drawerRef, buttonRef } = useMobileDrawer();
 
   return (
@@ -19,7 +22,7 @@ export function DocsNav({ children }: { children: React.ReactNode }) {
         aria-expanded={open}
         aria-controls="docs-sidebar"
         className="fixed bottom-4 right-4 z-50 md:hidden w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center shadow-lg"
-        aria-label={open ? "Close navigation" : "Open navigation"}
+        aria-label={open ? tCommon("closeMenu") : tCommon("openMenu")}
       >
         <svg
           width="16"
@@ -52,7 +55,7 @@ export function DocsNav({ children }: { children: React.ReactNode }) {
         ref={drawerRef}
         id="docs-sidebar"
         role="navigation"
-        aria-label="Documentation"
+        aria-label={tNav("docs")}
         style={{ height: "calc(100dvh - 3rem)" }}
         className={`fixed top-12 left-0 z-50 w-56 bg-background py-4 pr-4 overflow-y-auto transition-transform md:sticky md:top-12 md:z-20 md:shrink-0 md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"

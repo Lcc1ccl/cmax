@@ -1,9 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { flushSync } from "react-dom";
 
 export function ThemeToggle() {
+  const t = useTranslations("common");
   const { resolvedTheme, setTheme } = useTheme();
 
   const toggle = () => {
@@ -32,7 +34,7 @@ export function ThemeToggle() {
     <button
       onClick={toggle}
       className="inline-flex h-9 w-9 items-center justify-center text-muted hover:text-foreground transition-colors cursor-pointer"
-      aria-label="Toggle theme"
+      aria-label={t("toggleTheme")}
     >
       {/* Sun icon — visible in dark mode, hidden in light mode */}
       <svg

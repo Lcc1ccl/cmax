@@ -67,23 +67,33 @@ export default function CmuxSshPage() {
       />
 
       <ul className="mt-4 space-y-1">
-        <li>Browser panes route through the remote machine, so <code>localhost:3000</code> reaches the remote dev server without port forwarding</li>
-        <li>Drag an image into a remote terminal to upload via scp</li>
-        <li>Coding agents on the remote box send notifications to your local sidebar</li>
-        <li><code>cmux claude-teams</code> and <code>cmux omo</code> work over SSH, spawning teammate panes locally while computation runs remote</li>
-        <li>The sidebar shows connection state and detected listening ports</li>
+        <li>
+          {t.rich("feature1", {
+            code: (chunks) => <code>{chunks}</code>,
+          })}
+        </li>
+        <li>{t("feature2")}</li>
+        <li>{t("feature3")}</li>
+        <li>
+          {t.rich("feature4", {
+            code: (chunks) => <code>{chunks}</code>,
+          })}
+        </li>
+        <li>{t("feature5")}</li>
       </ul>
 
       <iframe
         className="my-6 rounded-lg w-full aspect-video"
         src="https://www.youtube.com/embed/RoR9pMOZWkk"
-        title="cmux SSH demo"
+        title={t("videoTitle")}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
       />
 
       <p className="mt-4">
-        <Link href="/docs/ssh">Read the SSH docs &rarr;</Link>
+        <Link href="/docs/ssh">
+          {t("readSshDocs")} &rarr;
+        </Link>
       </p>
     </>
   );

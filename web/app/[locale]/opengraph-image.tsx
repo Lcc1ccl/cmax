@@ -5,11 +5,29 @@ import { join } from "path";
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "cmux — The terminal built for multitasking";
 
 const S = 2; // render at 2x for sharper images on social platforms
 
-export default async function Image() {
+export async function generateImageMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const subtitle =
+    locale === "zh-CN" ? "专为多任务打造的终端" : "The terminal built for multitasking";
+
+  return [{ id: "default", alt: `cmux — ${subtitle}`, size, contentType }];
+}
+
+export default async function Image({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const subtitle =
+    locale === "zh-CN" ? "专为多任务打造的终端" : "The terminal built for multitasking";
   const [logoData, screenshotData, geistRegular, geistSemiBold] =
     await Promise.all([
       readFile(join(process.cwd(), "public", "logo.png")),
@@ -56,7 +74,7 @@ export default async function Image() {
               position: "relative",
             }}
           >
-            <img src={screenshotSrc} width={size.width * S} />
+            <img src={screenshotSrc} width={size.width * S} alt="" />
             <div
               style={{
                 position: "absolute",
@@ -90,6 +108,7 @@ export default async function Image() {
                 src={logoSrc}
                 width={112 * S}
                 height={112 * S}
+                alt=""
                 style={{ borderRadius: 20 * S }}
               />
               <div style={{ display: "flex", flexDirection: "column" }}>
@@ -114,7 +133,7 @@ export default async function Image() {
                     lineHeight: 1,
                   }}
                 >
-                  The terminal built for multitasking
+                  {subtitle}
                 </div>
               </div>
             </div>

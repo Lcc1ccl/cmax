@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "../../../i18n/navigation";
 import { NavLinks } from "./nav-links";
@@ -32,7 +33,7 @@ export function SiteHeader({
             {!hideLogo && (
               <>
                 <Link href="/" className="flex items-center gap-2.5">
-                  <img
+                  <Image
                     src="/logo.png"
                     alt="cmux"
                     width={24}
@@ -79,7 +80,7 @@ export function SiteHeader({
       <nav
         ref={drawerRef}
         role="navigation"
-        aria-label="Main navigation"
+        aria-label={tc("mainNavigation")}
         className={`fixed inset-y-0 right-0 z-50 w-56 bg-background border-l border-border overflow-y-auto transition-transform min-[940px]:hidden ${
           open ? "translate-x-0" : "translate-x-full invisible"
         }`}

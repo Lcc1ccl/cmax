@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 import { buildAlternates } from "../../../i18n/seo";
 import { SiteHeader } from "../components/site-header";
 import { BlogPager } from "../components/blog-pager";
@@ -29,9 +30,11 @@ export default function BlogLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("nav");
+
   return (
     <div className="min-h-screen">
-      <SiteHeader section="blog" />
+      <SiteHeader section={t("blog")} />
       <main className="w-full max-w-5xl mx-auto px-6 py-10">
         <div className="docs-content text-[15px]">{children}</div>
         <BlogCTA />
