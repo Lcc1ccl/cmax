@@ -78,6 +78,11 @@
           "default": false,
           "description": "When true, closing the last surface keeps the workspace open."
         },
+        "keepWindowOpenWhenClosingLastProjectWorkspace": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, closing the last workspace for a project in the current window creates a replacement workspace for that same project. When false, cmux keeps the existing close behavior. Tmp workspaces always keep their existing replacement behavior."
+        },
         "focusPaneOnFirstClick": {
           "type": "boolean",
           "default": true,

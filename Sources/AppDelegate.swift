@@ -4852,6 +4852,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     ) {
         prepareStartupSessionSnapshotIfNeeded()
         tabManager.window = window
+        tabManager.replaceLastWorkspaceHandler = { [weak self] workspace in
+            self?.replaceLastProjectWorkspace(closing: workspace) ?? false
+        }
 
         let key = ObjectIdentifier(window)
         #if DEBUG
@@ -7028,6 +7031,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         )
         #endif
         return workspace.id
+    }
+
+    private func replacementProjectRecord(for workspace: Workspace) -> ProjectRecord? {
+        guard let projectId = workspace.projectId,
+              let projectModelController else {
+            return nil
+        }
+
+        if let project = projectModelController.project(id: projectId),
+           !project.isMissing {
+            return project
+        }
+
+        let fallbackDirectory = workspace.currentDirectory
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !fallbackDirectory.isEmpty,
+              let repairedProject = projectModelController.repairMissingProject(
+                projectId: projectId,
+                directory: fallbackDirectory
+              ),
+              !repairedProject.isMissing else {
+            return nil
+        }
+
+        return repairedProject
+    }
+
+    @discardableResult
+    private func replaceLastProjectWorkspace(closing workspace: Workspace) -> Bool {
+        guard let project = replacementProjectRecord(for: workspace),
+              let context = contextContainingTabId(workspace.id),
+              let replacementId = createWorkspace(
+                in: context,
+                workingDirectory: project.rootPathCached,
+                shouldBringToFront: false,
+                event: nil,
+                debugSource: "workspace.close.replaceLastProject",
+                projectId: project.projectId
+              ) else {
+            return false
+        }
+
+        guard context.tabManager.tabs.contains(where: { $0.id == workspace.id }) else {
+            return false
+        }
+
+        context.tabManager.closeWorkspace(workspace)
+        return context.tabManager.tabs.contains(where: { $0.id == replacementId })
     }
 
     private func preferredMainWindowContextForWorkspaceCreation(

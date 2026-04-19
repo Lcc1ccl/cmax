@@ -9,6 +9,7 @@ import ObjectiveC.runtime
 #endif
 
 private let appDelegateLastSurfaceCloseShortcutDefaultsKey = "closeWorkspaceOnLastSurfaceShortcut"
+private let appDelegateLastProjectWorkspaceReplacementDefaultsKey = "keepWindowOpenWhenClosingLastProjectWorkspace"
 private var cmuxUnitTestOpenPanelHooksInstalled = false
 private var cmuxUnitTestOpenPanelRunModalHook: ((NSOpenPanel) -> NSApplication.ModalResponse)?
 private var cmuxUnitTestOpenPanelURLHook: ((NSOpenPanel) -> URL?)?
@@ -1105,6 +1106,278 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         XCTAssertEqual(manager.tabs.count, 1, "Tmp should immediately retain a replacement workspace")
         XCTAssertNotEqual(manager.selectedWorkspace?.id, originalWorkspace.id, "Tmp replacement should be a fresh workspace")
         XCTAssertNil(manager.selectedWorkspace?.projectId, "Tmp replacement must remain unbound")
+    }
+
+    func testClosingLastProjectWorkspaceKeepsWindowOpenWhenReplacementSettingEnabled() throws {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let defaults = UserDefaults.standard
+        let previousValue = defaults.object(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+        defer {
+            if let previousValue {
+                defaults.set(previousValue, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            } else {
+                defaults.removeObject(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            }
+        }
+        defaults.set(true, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-last-project-workspace-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        appDelegate.debugCloseMainWindowConfirmationHandler = { _ in true }
+
+        let windowId = appDelegate.createMainWindow(initialWorkingDirectory: directoryURL.path)
+        defer { closeWindow(withId: windowId) }
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let originalWorkspace = manager.selectedWorkspace,
+              let originalProjectId = originalWorkspace.projectId else {
+            XCTFail("Expected durable bootstrap workspace")
+            return
+        }
+
+        manager.confirmCloseHandler = { _, _, _ in true }
+
+        XCTAssertTrue(manager.closeWorkspaceWithConfirmation(originalWorkspace))
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        XCTAssertNotNil(window(withId: windowId), "Durable replacement should keep the window open when the setting is enabled")
+        XCTAssertEqual(manager.tabs.count, 1, "Durable replacement should leave exactly one workspace in the window")
+        XCTAssertNotEqual(manager.selectedWorkspace?.id, originalWorkspace.id, "Replacement should be a fresh workspace")
+        XCTAssertEqual(manager.selectedWorkspace?.projectId, originalProjectId, "Replacement should inherit the durable project id")
+        XCTAssertEqual(manager.selectedWorkspace?.currentDirectory, directoryURL.path, "Replacement should reopen at the project root")
+    }
+
+    func testClosingLastProjectWorkspaceInMixedWindowKeepsProjectSectionOpenWhenReplacementSettingEnabled() throws {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let defaults = UserDefaults.standard
+        let previousValue = defaults.object(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+        defer {
+            if let previousValue {
+                defaults.set(previousValue, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            } else {
+                defaults.removeObject(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            }
+        }
+        defaults.set(true, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-last-project-mixed-window-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        appDelegate.debugCloseMainWindowConfirmationHandler = { _ in true }
+
+        let windowId = appDelegate.createMainWindow(initialWorkingDirectory: directoryURL.path)
+        defer { closeWindow(withId: windowId) }
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let originalWorkspace = manager.selectedWorkspace,
+              let originalProjectId = originalWorkspace.projectId else {
+            XCTFail("Expected durable bootstrap workspace")
+            return
+        }
+
+        let tmpWorkspace = manager.addWorkspace(select: false)
+        manager.confirmCloseHandler = { _, _, _ in true }
+
+        XCTAssertNil(tmpWorkspace.projectId, "Test precondition: the extra workspace should stay tmp")
+        XCTAssertEqual(manager.tabs.count, 2, "Test precondition: window should contain one durable workspace and one tmp workspace")
+        XCTAssertTrue(manager.closeWorkspaceWithConfirmation(originalWorkspace))
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        XCTAssertNotNil(window(withId: windowId), "Mixed windows should stay open after replacing the last durable workspace")
+        XCTAssertEqual(manager.tabs.count, 2, "Replacing the last durable workspace should preserve the tmp workspace")
+        XCTAssertTrue(manager.tabs.contains(where: { $0.id == tmpWorkspace.id && $0.projectId == nil }), "Tmp workspace should remain untouched")
+
+        let durableReplacements = manager.tabs.filter { $0.projectId == originalProjectId }
+        XCTAssertEqual(durableReplacements.count, 1, "Project section should still contain a replacement workspace")
+        XCTAssertNotEqual(durableReplacements.first?.id, originalWorkspace.id, "Replacement should not reuse the closed workspace")
+        XCTAssertEqual(durableReplacements.first?.currentDirectory, directoryURL.path, "Replacement should reopen at the project root")
+    }
+
+    func testClosingLastProjectWorkspaceClosesWindowWhenReplacementSettingDisabled() throws {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let defaults = UserDefaults.standard
+        let previousValue = defaults.object(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+        defer {
+            if let previousValue {
+                defaults.set(previousValue, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            } else {
+                defaults.removeObject(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            }
+        }
+        defaults.set(false, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-last-project-window-close-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        appDelegate.debugCloseMainWindowConfirmationHandler = { _ in true }
+
+        let windowId = appDelegate.createMainWindow(initialWorkingDirectory: directoryURL.path)
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let originalWorkspace = manager.selectedWorkspace else {
+            XCTFail("Expected durable bootstrap workspace")
+            return
+        }
+
+        manager.confirmCloseHandler = { _, _, _ in true }
+
+        XCTAssertTrue(manager.closeWorkspaceWithConfirmation(originalWorkspace))
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        XCTAssertNil(window(withId: windowId), "Closing the last durable workspace should still close the window when the setting is disabled")
+    }
+
+    func testClosingLastProjectWorkspaceRepairsMissingProjectCatalogWhenWorkspaceDirectoryIsStillAvailable() throws {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let defaults = UserDefaults.standard
+        let previousValue = defaults.object(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+        defer {
+            if let previousValue {
+                defaults.set(previousValue, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            } else {
+                defaults.removeObject(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            }
+        }
+        defaults.set(true, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-last-project-fallback-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        appDelegate.debugCloseMainWindowConfirmationHandler = { _ in true }
+
+        let windowId = appDelegate.createMainWindow(initialWorkingDirectory: directoryURL.path)
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let originalWorkspace = manager.selectedWorkspace else {
+            XCTFail("Expected durable bootstrap workspace")
+            return
+        }
+
+        let originalProjectDirectory = originalWorkspace.currentDirectory
+        originalWorkspace.projectId = "repaired-project-id"
+        manager.confirmCloseHandler = { _, _, _ in true }
+
+        XCTAssertTrue(manager.closeWorkspaceWithConfirmation(originalWorkspace))
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        XCTAssertNotNil(window(withId: windowId), "A missing project catalog entry should be repaired from the workspace directory before falling back")
+        XCTAssertEqual(manager.tabs.count, 1, "Repairing the catalog should still leave a replacement workspace")
+        XCTAssertEqual(manager.selectedWorkspace?.projectId, "repaired-project-id", "Replacement should preserve the repaired durable project id")
+        XCTAssertEqual(manager.selectedWorkspace?.currentDirectory, originalProjectDirectory, "Replacement should continue opening at the durable project root")
+    }
+
+    func testClosingLastProjectWorkspaceInMixedWindowFallsBackToClosingOnlyThatWorkspaceWhenReplacementFails() throws {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let defaults = UserDefaults.standard
+        let previousValue = defaults.object(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+        defer {
+            if let previousValue {
+                defaults.set(previousValue, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            } else {
+                defaults.removeObject(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            }
+        }
+        defaults.set(true, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-last-project-mixed-fallback-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        appDelegate.debugCloseMainWindowConfirmationHandler = { _ in true }
+
+        let windowId = appDelegate.createMainWindow(initialWorkingDirectory: directoryURL.path)
+        defer { closeWindow(withId: windowId) }
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let originalWorkspace = manager.selectedWorkspace else {
+            XCTFail("Expected durable bootstrap workspace")
+            return
+        }
+
+        let tmpWorkspace = manager.addWorkspace(select: false)
+        originalWorkspace.projectId = "missing-project-id"
+        originalWorkspace.currentDirectory = ""
+        manager.confirmCloseHandler = { _, _, _ in true }
+
+        XCTAssertTrue(manager.closeWorkspaceWithConfirmation(originalWorkspace))
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        XCTAssertNotNil(window(withId: windowId), "Replacement failure should keep mixed windows on the legacy close path")
+        XCTAssertEqual(manager.tabs.count, 1, "Fallback should only close the targeted durable workspace")
+        XCTAssertEqual(manager.selectedWorkspace?.id, tmpWorkspace.id, "Tmp workspace should remain after fallback")
+        XCTAssertNil(manager.selectedWorkspace?.projectId, "Fallback should not synthesize a durable replacement when project lookup fails")
+    }
+
+    func testClosingLastProjectWorkspaceFallsBackToWindowCloseWhenReplacementCannotResolveProjectOrDirectory() throws {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let defaults = UserDefaults.standard
+        let previousValue = defaults.object(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+        defer {
+            if let previousValue {
+                defaults.set(previousValue, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            } else {
+                defaults.removeObject(forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+            }
+        }
+        defaults.set(true, forKey: appDelegateLastProjectWorkspaceReplacementDefaultsKey)
+
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-last-project-hard-fallback-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        appDelegate.debugCloseMainWindowConfirmationHandler = { _ in true }
+
+        let windowId = appDelegate.createMainWindow(initialWorkingDirectory: directoryURL.path)
+
+        guard let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let originalWorkspace = manager.selectedWorkspace else {
+            XCTFail("Expected durable bootstrap workspace")
+            return
+        }
+
+        originalWorkspace.projectId = "missing-project-id"
+        originalWorkspace.currentDirectory = ""
+        manager.confirmCloseHandler = { _, _, _ in true }
+
+        XCTAssertTrue(manager.closeWorkspaceWithConfirmation(originalWorkspace))
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        XCTAssertNil(window(withId: windowId), "If project lookup and workspace-directory repair both fail, the close path should fall back to closing the window")
     }
 
     func testShowOpenFolderPanelCreatesDurableWorkspaceFromExplicitSelection() throws {

@@ -90033,6 +90033,57 @@
           }
         }
       }
+    },
+    "settings.app.keepWindowOpenWhenClosingLastProjectWorkspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep Project Open When Closing Its Last Workspace"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最後のワークスペースを閉じてもプロジェクトを維持する"
+          }
+        }
+      }
+    },
+    "settings.app.keepWindowOpenWhenClosingLastProjectWorkspace.subtitleOn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When closing the last workspace for a project in the current window, cmux creates a new workspace for that same project. Tmp workspaces always keep their current replacement behavior."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在のウィンドウ内でプロジェクトの最後のワークスペースを閉じると、cmux は同じプロジェクト用の新しいワークスペースを作成します。tmp ワークスペースは常に現在の置き換え動作を維持します。"
+          }
+        }
+      }
+    },
+    "settings.app.keepWindowOpenWhenClosingLastProjectWorkspace.subtitleOff": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When closing the last workspace for a project in the current window, cmux keeps the existing close behavior. Tmp workspaces always keep their current replacement behavior."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在のウィンドウ内でプロジェクトの最後のワークスペースを閉じると、cmux は既存のクローズ動作を維持します。tmp ワークスペースは常に現在の置き換え動作を維持します。"
+          }
+        }
+      }
     }
   }
 }

@@ -31,6 +31,7 @@ final class CmuxSettingsFileStore {
         "app.newWorkspacePlacement",
         "app.minimalMode",
         "app.keepWorkspaceOpenWhenClosingLastSurface",
+        "app.keepWindowOpenWhenClosingLastProjectWorkspace",
         "app.focusPaneOnFirstClick",
         "app.preferredEditor",
         "app.openMarkdownInCmuxViewer",
@@ -424,6 +425,9 @@ final class CmuxSettingsFileStore {
         }
         if let value = jsonBool(section["keepWorkspaceOpenWhenClosingLastSurface"]) {
             snapshot.managedUserDefaults[LastSurfaceCloseShortcutSettings.key] = .bool(!value)
+        }
+        if let value = jsonBool(section["keepWindowOpenWhenClosingLastProjectWorkspace"]) {
+            snapshot.managedUserDefaults[LastProjectWorkspaceReplacementSettings.key] = .bool(value)
         }
         if let value = jsonBool(section["focusPaneOnFirstClick"]) {
             snapshot.managedUserDefaults[PaneFirstClickFocusSettings.enabledKey] = .bool(value)
@@ -1359,6 +1363,7 @@ final class CmuxSettingsFileStore {
                     "newWorkspacePlacement": WorkspacePlacementSettings.defaultPlacement.rawValue,
                     "minimalMode": false,
                     "keepWorkspaceOpenWhenClosingLastSurface": !LastSurfaceCloseShortcutSettings.defaultValue,
+                    "keepWindowOpenWhenClosingLastProjectWorkspace": LastProjectWorkspaceReplacementSettings.defaultValue,
                     "focusPaneOnFirstClick": PaneFirstClickFocusSettings.defaultEnabled,
                     "preferredEditor": "",
                     "openMarkdownInCmuxViewer": CmdClickMarkdownRouteSettings.defaultValue,

@@ -4436,6 +4436,8 @@ struct SettingsView: View {
     @AppStorage(WorkspacePlacementSettings.placementKey) private var newWorkspacePlacement = WorkspacePlacementSettings.defaultPlacement.rawValue
     @AppStorage(LastSurfaceCloseShortcutSettings.key)
     private var closeWorkspaceOnLastSurfaceShortcut = LastSurfaceCloseShortcutSettings.defaultValue
+    @AppStorage(LastProjectWorkspaceReplacementSettings.key)
+    private var keepWindowOpenWhenClosingLastProjectWorkspace = LastProjectWorkspaceReplacementSettings.defaultValue
     @AppStorage(PaneFirstClickFocusSettings.enabledKey)
     private var paneFirstClickFocusEnabled = PaneFirstClickFocusSettings.defaultEnabled
     @AppStorage(TerminalScrollBarSettings.showScrollBarKey)
@@ -4549,6 +4551,19 @@ struct SettingsView: View {
         return String(
             localized: "settings.app.closeWorkspaceOnLastSurfaceShortcut.subtitleOff",
             defaultValue: "When the focused surface is the last one in its workspace, the close-surface shortcut also closes the workspace."
+        )
+    }
+
+    private var keepWindowOpenWhenClosingLastProjectWorkspaceSubtitle: String {
+        if keepWindowOpenWhenClosingLastProjectWorkspace {
+            return String(
+                localized: "settings.app.keepWindowOpenWhenClosingLastProjectWorkspace.subtitleOn",
+                defaultValue: "When closing the last workspace for a project in the current window, cmux creates a new workspace for that same project. Tmp workspaces always keep their current replacement behavior."
+            )
+        }
+        return String(
+            localized: "settings.app.keepWindowOpenWhenClosingLastProjectWorkspace.subtitleOff",
+            defaultValue: "When closing the last workspace for a project in the current window, cmux keeps the existing close behavior. Tmp workspaces always keep their current replacement behavior."
         )
     }
 
@@ -5085,6 +5100,18 @@ struct SettingsView: View {
                             subtitle: closeWorkspaceOnLastSurfaceShortcutSubtitle
                         ) {
                             Toggle("", isOn: keepWorkspaceOpenOnLastSurfaceShortcutBinding)
+                                .labelsHidden()
+                                .controlSize(.small)
+                        }
+
+                        SettingsCardDivider()
+
+                        SettingsCardRow(
+                            configurationReview: .json("app.keepWindowOpenWhenClosingLastProjectWorkspace"),
+                            String(localized: "settings.app.keepWindowOpenWhenClosingLastProjectWorkspace", defaultValue: "Keep Project Open When Closing Its Last Workspace"),
+                            subtitle: keepWindowOpenWhenClosingLastProjectWorkspaceSubtitle
+                        ) {
+                            Toggle("", isOn: $keepWindowOpenWhenClosingLastProjectWorkspace)
                                 .labelsHidden()
                                 .controlSize(.small)
                         }
@@ -6648,6 +6675,7 @@ struct SettingsView: View {
         defaults.removeObject(forKey: WorkspaceButtonFadeSettings.legacyTitlebarControlsVisibilityModeKey)
         defaults.removeObject(forKey: WorkspaceButtonFadeSettings.legacyPaneTabBarControlsVisibilityModeKey)
         closeWorkspaceOnLastSurfaceShortcut = LastSurfaceCloseShortcutSettings.defaultValue
+        keepWindowOpenWhenClosingLastProjectWorkspace = LastProjectWorkspaceReplacementSettings.defaultValue
         paneFirstClickFocusEnabled = PaneFirstClickFocusSettings.defaultEnabled
         let previousShowTerminalScrollBar = showTerminalScrollBar
         showTerminalScrollBar = TerminalScrollBarSettings.defaultShowScrollBar

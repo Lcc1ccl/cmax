@@ -74,6 +74,18 @@ enum LastSurfaceCloseShortcutSettings {
     }
 }
 
+enum LastProjectWorkspaceReplacementSettings {
+    static let key = "keepWindowOpenWhenClosingLastProjectWorkspace"
+    static let defaultValue = true
+
+    static func isEnabled(defaults: UserDefaults = .standard) -> Bool {
+        if defaults.object(forKey: key) == nil {
+            return defaultValue
+        }
+        return defaults.bool(forKey: key)
+    }
+}
+
 enum SidebarBranchLayoutSettings {
     static let key = "sidebarBranchVerticalLayout"
     static let defaultVerticalLayout = true
@@ -992,6 +1004,7 @@ class TabManager: ObservableObject {
     private var pendingWorkspaceUnfocusTarget: (tabId: UUID, panelId: UUID)?
     private var sidebarSelectedWorkspaceIds: Set<UUID> = []
     var confirmCloseHandler: ((String, String, Bool) -> Bool)?
+    var replaceLastWorkspaceHandler: ((Workspace) -> Bool)?
     private struct WorkspaceCreationTabSnapshot {
         let id: UUID
         let isPinned: Bool
@@ -4122,6 +4135,25 @@ class TabManager: ObservableObject {
         return String(localized: "workspace.displayName.fallback", defaultValue: "Workspace")
     }
 
+    private func isLastWorkspaceInProjectGroup(_ workspace: Workspace) -> Bool {
+        !tabs.contains { candidate in
+            candidate.id != workspace.id && candidate.projectId == workspace.projectId
+        }
+    }
+
+    private func replaceLastTemporaryProjectWorkspace(_ workspace: Workspace) -> Bool {
+        let shouldSelectReplacement = selectedTabId == workspace.id
+        let replacement = addWorkspace(
+            select: shouldSelectReplacement,
+            autoWelcomeIfNeeded: false
+        )
+        guard tabs.contains(where: { $0.id == workspace.id }) else {
+            return false
+        }
+        closeWorkspace(workspace)
+        return tabs.contains(where: { $0.id == replacement.id }) && replacement.projectId == nil
+    }
+
     private func closeWorkspaceIfRunningProcess(_ workspace: Workspace, requiresConfirmation: Bool = true) {
         let willCloseWindow = tabs.count <= 1
         if requiresConfirmation,
@@ -4133,11 +4165,22 @@ class TabManager: ObservableObject {
            ) {
             return
         }
-        if tabs.count <= 1 {
+        if isLastWorkspaceInProjectGroup(workspace) {
             if workspace.projectId == nil {
-                replaceLastTemporaryWorkspace(workspace)
+                if replaceLastTemporaryProjectWorkspace(workspace) {
+                    return
+                }
+                if tabs.count <= 1 {
+                    replaceLastTemporaryWorkspace(workspace)
+                    return
+                }
+            } else if LastProjectWorkspaceReplacementSettings.isEnabled(),
+                      let replaceLastWorkspaceHandler,
+                      replaceLastWorkspaceHandler(workspace) {
                 return
             }
+        }
+        if tabs.count <= 1 {
             // Last workspace in this window: close the window (Cmd+Shift+W behavior).
             if let window {
                 window.performClose(nil)

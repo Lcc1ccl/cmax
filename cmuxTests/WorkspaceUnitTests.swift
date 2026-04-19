@@ -1344,6 +1344,68 @@ final class KeyboardShortcutSettingsFileStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testReloadConfigurationReloadsLastProjectWorkspaceReplacementSettingFromSettingsFile() throws {
+        let defaults = UserDefaults.standard
+        let managedKey = LastProjectWorkspaceReplacementSettings.key
+        let previousValue = defaults.object(forKey: managedKey)
+        let previousBackups = defaults.data(forKey: settingsFileBackupsDefaultsKey)
+        defer {
+            if let previousValue {
+                defaults.set(previousValue, forKey: managedKey)
+            } else {
+                defaults.removeObject(forKey: managedKey)
+            }
+
+            if let previousBackups {
+                defaults.set(previousBackups, forKey: settingsFileBackupsDefaultsKey)
+            } else {
+                defaults.removeObject(forKey: settingsFileBackupsDefaultsKey)
+            }
+        }
+
+        defaults.removeObject(forKey: managedKey)
+        defaults.removeObject(forKey: settingsFileBackupsDefaultsKey)
+
+        let directoryURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        let settingsFileURL = directoryURL.appendingPathComponent("settings.json", isDirectory: false)
+        try writeSettingsFile(
+            """
+            {
+              "app": {
+                "keepWindowOpenWhenClosingLastProjectWorkspace": false
+              }
+            }
+            """,
+            to: settingsFileURL
+        )
+
+        KeyboardShortcutSettings.settingsFileStore = KeyboardShortcutSettingsFileStore(
+            primaryPath: settingsFileURL.path,
+            fallbackPath: nil,
+            startWatching: false
+        )
+
+        XCTAssertFalse(LastProjectWorkspaceReplacementSettings.isEnabled())
+
+        try writeSettingsFile(
+            """
+            {
+              "app": {
+                "keepWindowOpenWhenClosingLastProjectWorkspace": true
+              }
+            }
+            """,
+            to: settingsFileURL
+        )
+
+        GhosttyApp.shared.reloadConfiguration(source: "test.reload_config_last_project_workspace_replacement")
+
+        XCTAssertTrue(LastProjectWorkspaceReplacementSettings.isEnabled())
+    }
+
+    @MainActor
     func testManagedWorkspacePlacementChangesDefaultInsertionBehavior() throws {
         let defaults = UserDefaults.standard
         let managedKey = WorkspacePlacementSettings.placementKey
