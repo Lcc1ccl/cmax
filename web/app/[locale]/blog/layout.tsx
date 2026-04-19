@@ -1,5 +1,4 @@
 import { getTranslations } from "next-intl/server";
-import { useTranslations } from "next-intl";
 import { buildAlternates } from "../../../i18n/seo";
 import { SiteHeader } from "../components/site-header";
 import { BlogPager } from "../components/blog-pager";
@@ -25,12 +24,12 @@ export async function generateMetadata({
   };
 }
 
-export default function BlogLayout({
+export default async function BlogLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const t = useTranslations("nav");
+  const t = await getTranslations("nav");
 
   return (
     <div className="min-h-screen">

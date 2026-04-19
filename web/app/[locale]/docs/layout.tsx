@@ -1,5 +1,4 @@
 import { getTranslations } from "next-intl/server";
-import { useTranslations } from "next-intl";
 import { buildAlternates } from "../../../i18n/seo";
 import { DocsNav } from "./docs-nav";
 import { SiteHeader } from "../components/site-header";
@@ -24,12 +23,12 @@ export async function generateMetadata({
   };
 }
 
-export default function DocsLayout({
+export default async function DocsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const t = useTranslations("nav");
+  const t = await getTranslations("nav");
 
   return (
     <div className="min-h-screen">

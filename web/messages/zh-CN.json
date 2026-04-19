@@ -128,7 +128,7 @@
     },
     "cmuxSsh": {
       "metaTitle": "cmux SSH",
-      "metaDescription": "一个命令即可获得持久化远程会话、可访问远程端口的浏览器面板，以及会回到本地侧边栏的 agent 通知。"
+      "metaDescription": "一条命令即可获得持久化远程会话、能访问远程端口的浏览器面板，以及会回到本地的 agent 通知。"
     },
     "cmdShiftU": {
       "metaTitle": "Cmd+Shift+U",
@@ -166,14 +166,14 @@
       },
       "cmuxSsh": {
         "title": "cmux SSH",
-        "summary": "一个命令即可获得持久化远程会话、可访问远程端口的浏览器面板，以及会回到本地侧边栏的 agent 通知。",
+        "summary": "一条命令即可获得持久化远程会话、能访问远程端口的浏览器面板，以及会回到本地的 agent 通知。",
         "date": "2026年3月30日",
-        "p1": "<code>cmux ssh user@remote</code> 会为远程机器创建一个工作区。把图片拖进远程 Claude Code 会话后，它会自动上传。浏览器面板走远程网络，所以 localhost 可以直接访问。它会读取你的 <code>~/.ssh/config</code>，断线后自动重连。",
+        "p1": "<code>cmux ssh user@remote</code> 会为远程机器创建一个工作区。把图片拖进远程 Claude Code 会话时，它会自动上传。浏览器面板会通过远程网络路由，所以 localhost 可以直接工作。它会使用你的 <code>~/.ssh/config</code>，并在连接中断后自动重连。",
         "features": "浏览器面板会通过远程网络路由流量，因此 localhost:3000 会直接访问远程开发服务器，无需 -L 参数。远程机器上的 coding agent 会把通知发回你的本地侧边栏。cmux claude-teams 和 cmux omo 也能通过 SSH 工作：计算在远程运行，但 teammate pane 会在本地生成。把文件拖进远程终端时，会通过 scp 上传。侧边栏会显示连接状态以及检测到的监听端口。",
-        "feature1": "浏览器面板的流量会走远程网络，因此无需端口转发，<code>localhost:3000</code> 就能直接访问远程开发服务器。",
-        "feature2": "把图片拖进远程终端后，会通过 scp 自动上传。",
+        "feature1": "浏览器面板会通过远程机器的网络路由，因此 localhost:3000 可以直接访问远程开发服务器，无需端口转发。",
+        "feature2": "把图片拖进远程终端时，会通过 scp 自动上传。",
         "feature3": "远程机器上的 coding agent 会把通知发送到你的本地侧边栏。",
-        "feature4": "<code>cmux claude-teams</code> 和 <code>cmux omo</code> 都支持通过 SSH 运行：计算在远程执行，teammate 面板在本地生成。",
+        "feature4": "cmux claude-teams 和 cmux omo 都能通过 SSH 工作：计算在远程运行，但 teammate pane 会在本地生成。",
         "feature5": "侧边栏会显示连接状态以及检测到的监听端口。",
         "videoTitle": "cmux SSH 演示",
         "readSshDocs": "阅读 SSH 文档"
@@ -324,6 +324,7 @@
     },
     "configuration": {
       "title": "配置",
+      "metaTitle": "配置",
       "metaDescription": "通过 Ghostty 配置文件配置 cmux。字体、主题、颜色、分屏样式、回滚缓冲区和自动化模式的应用设置。",
       "intro": "cmux 从 Ghostty 配置文件中读取配置，如果你之前使用 Ghostty，这些选项会很熟悉。",
       "configLocations": "配置文件位置",
@@ -357,7 +358,20 @@
       "settingsFilePrecedence": "在 settings.json 中定义的快捷键会覆盖应用内 Settings 中的值。受管理的快捷键仍会显示在 Settings 中，但在那里会变为只读。",
       "settingsFileChords": "单个快捷键使用字符串；组合键使用包含两个元素的数组。例如：[\"ctrl+b\", \"c\"] 表示先按 Ctrl+B，再按 C。",
       "exampleConfig": "配置示例",
-      "metaTitle": "配置"
+      "fieldType": "类型",
+      "fieldDefault": "默认值",
+      "fieldAllowedValues": "可选值",
+      "settingsFileHeading": "cmux settings.json",
+      "settingsFilePrecedenceLabel": "优先级",
+      "settingsFileReloadLabel": "重新加载",
+      "settingsFileReload": "编辑文件后，使用 Cmd+Shift+, 或 cmux reload-config 重新读取配置，无需重启应用。",
+      "settingsFileMigrationsLabel": "迁移",
+      "settingsFileMigrations": "目前请将 schemaVersion 保持为 1。未来版本会使用该字段进行升级。如果 cmux 发现更高的 schema 版本，只会记录警告并解析已知键。",
+      "settingsFileSchemaNote": "该文件支持带注释和尾随逗号的 JSON。规范 schema 发布于 <schema>{schema}</schema>，源码位于 <source>{source}</source>。",
+      "schemaReference": "Schema 参考",
+      "schemaReferenceDesc": "这里列出了 settings.json 支持的全部键。内嵌浏览器、终端、侧边栏、通知、自动化以及 cmux 自有快捷键都定义在这里。",
+      "schemaMetadata": "元数据",
+      "defaultFileValue": "默认文件值"
     },
     "customCommands": {
       "title": "自定义命令",
@@ -426,6 +440,7 @@
     "keyboardShortcuts": {
       "title": "快捷键",
       "description": "cmux 中所有可用的快捷键，按类别分组。",
+      "metaTitle": "键盘快捷键",
       "metaDescription": "cmux 的所有 macOS 快捷键，涵盖工作区、surface、分屏面板、浏览器、通知、查找和窗口管理。",
       "chordsTitle": "组合快捷键",
       "chordsIntro": "cmux 在 <settingsFile>~/.config/cmux/settings.json</settingsFile> 中支持两段式组合快捷键。完整的 settings 文件 schema 请参见 <configurationLink>配置文档</configurationLink>。",
@@ -491,8 +506,7 @@
         "wn-settings": "设置",
         "wn-reload": "重新加载配置",
         "wn-quit": "退出"
-      },
-      "metaTitle": "键盘快捷键"
+      }
     },
     "api": {
       "title": "API 参考",
@@ -574,7 +588,10 @@
       "pythonClient": "Python 客户端",
       "shellScript": "Shell 脚本",
       "buildScriptNotification": "带通知的构建脚本",
-      "metaTitle": "API 参考"
+      "metaTitle": "API 参考",
+      "offLabel": "关闭",
+      "cmuxOnlyLabel": "仅限 cmux 进程",
+      "allowAllLabel": "allowAll"
     },
     "notifications": {
       "title": "通知",
@@ -893,7 +910,7 @@
     "title": "用户好评",
     "description": "大家对 cmux 的评价。",
     "metaTitle": "用户好评 — cmux",
-    "metaDescription": "大家如何评价 cmux，这个专为多任务打造的终端。"
+    "metaDescription": "大家如何评价 cmux，这个为多任务而生的终端。"
   },
   "testimonials": {
     "mitchellh": "又一个基于 libghostty 的项目，这次是一个带垂直标签页、更好的组织/通知、内置可编程浏览器的 macOS 终端，专门面向大量使用终端 agent 工作流的用户。",

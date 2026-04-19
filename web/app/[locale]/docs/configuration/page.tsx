@@ -150,6 +150,8 @@ function hasComplexDefaultValue(value: unknown): boolean {
 }
 
 function PropertyCard({ path, property }: { path: string; property: SchemaProperty }) {
+  const t = useTranslations("docs.configuration");
+
   return (
     <div className="rounded-xl border border-border/70 bg-background/40 p-4">
       <div className="mb-2 flex items-center gap-2">
@@ -158,13 +160,13 @@ function PropertyCard({ path, property }: { path: string; property: SchemaProper
       {property.description && <p className="mb-3 text-sm text-muted">{property.description}</p>}
       <dl className="space-y-2 text-sm">
         <div>
-          <dt className="font-medium text-foreground">Type</dt>
+          <dt className="font-medium text-foreground">{t("fieldType")}</dt>
           <dd className="text-muted">
             <code>{formatSchemaType(property)}</code>
           </dd>
         </div>
         <div>
-          <dt className="font-medium text-foreground">Default</dt>
+          <dt className="font-medium text-foreground">{t("fieldDefault")}</dt>
           <dd className="text-muted">
             {hasComplexDefaultValue(property.default) ? (
               <pre className="overflow-x-auto rounded-lg bg-background/60 p-3 text-xs text-foreground">
@@ -177,7 +179,7 @@ function PropertyCard({ path, property }: { path: string; property: SchemaProper
         </div>
         {property.enum && (
           <div>
-            <dt className="font-medium text-foreground">Allowed values</dt>
+            <dt className="font-medium text-foreground">{t("fieldAllowedValues")}</dt>
             <dd className="text-muted">
               <code>{property.enum.join(", ")}</code>
             </dd>
@@ -221,9 +223,6 @@ export default function ConfigurationPage() {
     schemaVersion: schemaProperties.schemaVersion,
   } satisfies Record<string, SchemaProperty | undefined>;
 
-  const shortcutsSection = schemaProperties.shortcuts;
-  const shortcutProperties = shortcutsSection?.properties ?? {};
-
   return (
     <>
       <h1>{t("title")}</h1>
@@ -251,12 +250,8 @@ scrollback-limit = 50000
 split-divider-color = #3e4451
 working-directory = ~/code`}</CodeBlock>
 
-      <h2>cmux settings.json</h2>
-      <p>
-        cmux keeps app-owned settings in a separate user file instead of mixing them into Ghostty
-        config. On launch, if neither settings location exists, cmux writes a commented template to{" "}
-        <code>~/.config/cmux/settings.json</code>.
-      </p>
+      <h2>{t("settingsFileHeading")}</h2>
+      <p>{t("settingsFileDesc")}</p>
       <ol>
         <li>
           <code>~/.config/cmux/settings.json</code>
@@ -266,36 +261,28 @@ working-directory = ~/code`}</CodeBlock>
         </li>
       </ol>
       <Callout type="info">
-        <strong>Precedence:</strong> <code>~/.config/cmux/settings.json</code> wins over the
-        Application Support fallback. File-managed values override the value saved in the Settings
-        window. Remove a key to fall back to the Settings value again.
+        <strong>{t("settingsFilePrecedenceLabel")}:</strong> {t("settingsFilePrecedence")}
       </Callout>
       <Callout type="info">
-        <strong>Reload:</strong> edit the file, then use <code>Cmd+Shift+,</code> or{" "}
-        <code>cmux reload-config</code> to re-read it without restarting the app.
+        <strong>{t("settingsFileReloadLabel")}:</strong> {t("settingsFileReload")}
       </Callout>
       <Callout type="warn">
-        <strong>Migrations:</strong> keep <code>schemaVersion</code> at <code>1</code> for now.
-        Future cmux versions will use that field for upgrades. If cmux sees a newer schema version,
-        it logs a warning and parses known keys only.
+        <strong>{t("settingsFileMigrationsLabel")}:</strong> {t("settingsFileMigrations")}
       </Callout>
       <p>
-        The file accepts JSON with comments and trailing commas. The canonical schema is published
-        at <a href={schemaUrl}>{schemaUrl}</a> and the source lives at{" "}
-        <a href={schemaSourceUrl}>{schemaSourceUrl}</a>.
+        {t.rich("settingsFileSchemaNote", {
+          schema: (chunks) => <a href={schemaUrl}>{chunks}</a>,
+          source: (chunks) => <a href={schemaSourceUrl}>{chunks}</a>,
+        })}
       </p>
       <CodeBlock title="~/.config/cmux/settings.json" lang="json">
         {settingsFileExample}
       </CodeBlock>
 
-      <h2>Schema reference</h2>
-      <p>
-        This reference covers every supported key in <code>settings.json</code>. The embedded
-        browser, terminal, sidebar, notifications, automation, and cmux-owned keyboard shortcuts
-        all live here.
-      </p>
+      <h2>{t("schemaReference")}</h2>
+      <p>{t("schemaReferenceDesc")}</p>
 
-      <h3>Metadata</h3>
+      <h3>{t("schemaMetadata")}</h3>
       <PropertyGrid
         prefix=""
         properties={Object.fromEntries(
@@ -379,7 +366,7 @@ working-directory = ~/code`}</CodeBlock>
                   </p>
                 </div>
                 <div className="text-sm text-muted">
-                  <div className="font-medium text-foreground">Default file value</div>
+                  <div className="font-medium text-foreground">{t("defaultFileValue")}</div>
                   <code>{shortcutComboToConfig(shortcut.combos[0] ?? [])}</code>
                 </div>
               </div>

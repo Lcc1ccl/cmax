@@ -96,21 +96,21 @@ export default function ApiPage() {
         <tbody>
           <tr>
             <td>
-              <strong>Off</strong>
+              <strong>{t("offLabel")}</strong>
             </td>
             <td>{t("offMode")}</td>
             <td>{t("offEnable")}</td>
           </tr>
           <tr>
             <td>
-              <strong>cmux processes only</strong>
+              <strong>{t("cmuxOnlyLabel")}</strong>
             </td>
             <td>{t("cmuxOnlyMode")}</td>
             <td>{t("cmuxOnlyEnable")}</td>
           </tr>
           <tr>
             <td>
-              <strong>allowAll</strong>
+              <strong>{t("allowAllLabel")}</strong>
             </td>
             <td>{t("allowAllMode")}</td>
             <td>{t("allowAllEnable")}</td>

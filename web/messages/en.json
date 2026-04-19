@@ -357,7 +357,21 @@
       "settingsFileDesc": "cmux also reads a user settings file for cmux-owned shortcuts. Today the file supports the shortcuts section.",
       "settingsFilePrecedence": "Shortcuts defined in settings.json override the in-app Settings value. Managed shortcuts stay visible in Settings but become read-only there.",
       "settingsFileChords": "Use a string for a single shortcut or a two-item array for a chord. Example: [\"ctrl+b\", \"c\"] means press Ctrl+B, then C.",
-      "exampleConfig": "Example config"
+      "exampleConfig": "Example config",
+      "fieldType": "Type",
+      "fieldDefault": "Default",
+      "fieldAllowedValues": "Allowed values",
+      "settingsFileHeading": "cmux settings.json",
+      "settingsFilePrecedenceLabel": "Precedence",
+      "settingsFileReloadLabel": "Reload",
+      "settingsFileReload": "Edit the file, then use Cmd+Shift+, or cmux reload-config to re-read it without restarting the app.",
+      "settingsFileMigrationsLabel": "Migrations",
+      "settingsFileMigrations": "Keep schemaVersion at 1 for now. Future cmux versions will use that field for upgrades. If cmux sees a newer schema version, it logs a warning and parses known keys only.",
+      "settingsFileSchemaNote": "The file accepts JSON with comments and trailing commas. The canonical schema is published at <schema>{schema}</schema> and the source lives at <source>{source}</source>.",
+      "schemaReference": "Schema reference",
+      "schemaReferenceDesc": "This reference covers every supported key in settings.json. The embedded browser, terminal, sidebar, notifications, automation, and cmux-owned keyboard shortcuts all live here.",
+      "schemaMetadata": "Metadata",
+      "defaultFileValue": "Default file value"
     },
     "customCommands": {
       "title": "Custom Commands",
@@ -574,7 +588,10 @@
       "examples": "Examples",
       "pythonClient": "Python client",
       "shellScript": "Shell script",
-      "buildScriptNotification": "Build script with notification"
+      "buildScriptNotification": "Build script with notification",
+      "offLabel": "Off",
+      "cmuxOnlyLabel": "cmux processes only",
+      "allowAllLabel": "allowAll"
     },
     "notifications": {
       "title": "Notifications",

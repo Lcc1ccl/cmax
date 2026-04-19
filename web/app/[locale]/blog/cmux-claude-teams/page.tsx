@@ -82,7 +82,9 @@ export default function CmuxClaudeTeamsPage() {
       </p>
 
       <p className="mt-4">
-        <Link href="/docs/agent-integrations/claude-code-teams">Read the docs &rarr;</Link>
+        <Link href="/docs/agent-integrations/claude-code-teams">
+          {tc("readTheDocs")} &rarr;
+        </Link>
       </p>
     </>
   );
