@@ -104,6 +104,14 @@ jobs:
 
       - name: Install build deps
         if: steps.guard_release_assets.outputs.skip_all != 'true'
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_RELEASE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_RELEASE_PROVISIONING_PROFILE_BASE64 }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           ZIG_REQUIRED="0.15.2"
           if command -v zig >/dev/null 2>&1 && zig version 2>/dev/null | grep -q "^${ZIG_REQUIRED}"; then
@@ -118,7 +126,17 @@ jobs:
             export PATH="/usr/local/bin:$PATH"
             zig version
           fi
-          npm install --global "create-dmg@${CREATE_DMG_VERSION}"
+          if [ -n "$APPLE_CERTIFICATE_BASE64" ] && \
+             [ -n "$APPLE_CERTIFICATE_PASSWORD" ] && \
+             [ -n "$APPLE_RELEASE_PROVISIONING_PROFILE_BASE64" ] && \
+             [ -n "$APPLE_SIGNING_IDENTITY" ] && \
+             [ -n "$APPLE_ID" ] && \
+             [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && \
+             [ -n "$APPLE_TEAM_ID" ]; then
+            npm install --global "create-dmg@${CREATE_DMG_VERSION}"
+          else
+            echo "Apple signing/notarization secrets are incomplete; skipping create-dmg install for ad-hoc fallback."
+          fi
 
       - name: Download pre-built GhosttyKit.xcframework
         if: steps.guard_release_assets.outputs.skip_all != 'true'
@@ -223,8 +241,34 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$APP_PLIST"
           /usr/libexec/PlistBuddy -c "Print :SUFeedURL" "$APP_PLIST"
 
-      - name: Import signing cert
+      - name: Decide signing mode
         if: steps.guard_release_assets.outputs.skip_all != 'true'
+        id: signing_mode
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_RELEASE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_RELEASE_PROVISIONING_PROFILE_BASE64 }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE_BASE64" ] && \
+             [ -n "$APPLE_CERTIFICATE_PASSWORD" ] && \
+             [ -n "$APPLE_RELEASE_PROVISIONING_PROFILE_BASE64" ] && \
+             [ -n "$APPLE_SIGNING_IDENTITY" ] && \
+             [ -n "$APPLE_ID" ] && \
+             [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && \
+             [ -n "$APPLE_TEAM_ID" ]; then
+            echo "mode=developer_id" >> "$GITHUB_OUTPUT"
+            echo "Developer ID signing and notarization secrets are present."
+          else
+            echo "mode=adhoc" >> "$GITHUB_OUTPUT"
+            echo "::notice::Apple signing/notarization secrets are incomplete; producing an ad-hoc signed, non-notarized DMG for this fork release."
+          fi
+
+      - name: Import signing cert
+        if: steps.guard_release_assets.outputs.skip_all != 'true' && steps.signing_mode.outputs.mode == 'developer_id'
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -248,7 +292,7 @@ jobs:
           security list-keychains -d user -s build.keychain
 
       - name: Embed release provisioning profile
-        if: steps.guard_release_assets.outputs.skip_all != 'true'
+        if: steps.guard_release_assets.outputs.skip_all != 'true' && steps.signing_mode.outputs.mode == 'developer_id'
         env:
           APPLE_RELEASE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_RELEASE_PROVISIONING_PROFILE_BASE64 }}
         run: |
@@ -281,7 +325,7 @@ jobs:
           cp "$TMP_PROFILE" "$PROFILE_PATH"
 
       - name: Codesign app
-        if: steps.guard_release_assets.outputs.skip_all != 'true'
+        if: steps.guard_release_assets.outputs.skip_all != 'true' && steps.signing_mode.outputs.mode == 'developer_id'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
@@ -296,7 +340,7 @@ jobs:
             "$APPLE_SIGNING_IDENTITY"
 
       - name: Notarize app
-        if: steps.guard_release_assets.outputs.skip_all != 'true'
+        if: steps.guard_release_assets.outputs.skip_all != 'true' && steps.signing_mode.outputs.mode == 'developer_id'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -339,6 +383,23 @@ jobs:
           fi
           xcrun stapler staple "$DMG_RELEASE"
           xcrun stapler validate "$DMG_RELEASE"
+
+      - name: Create ad-hoc signed DMG
+        if: steps.guard_release_assets.outputs.skip_all != 'true' && steps.signing_mode.outputs.mode == 'adhoc'
+        run: |
+          set -euo pipefail
+          APP_PATH="build-universal/Build/Products/Release/cmux.app"
+          DMG_RELEASE="cmax-macos.dmg"
+          /usr/bin/codesign --force --sign - --timestamp=none --deep "$APP_PATH"
+          /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          rm -f "$DMG_RELEASE"
+          hdiutil create \
+            -volname "cmax" \
+            -srcfolder "$APP_PATH" \
+            -ov \
+            -format UDZO \
+            "$DMG_RELEASE" >/dev/null
+          hdiutil verify "$DMG_RELEASE"
 
       - name: Upload dSYMs to Sentry
         if: steps.guard_release_assets.outputs.skip_all != 'true'
