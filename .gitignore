@@ -21,7 +21,7 @@ GhosttyKit.xcframework.bak-*/
 
 # Release artifacts
 GhosttyTabs-*.zip
-cmux-macos.dmg
+cmax-macos.dmg
 appcast.xml
 
 # Python
@@ -56,3 +56,8 @@ tmp-*/
 .codex/skills/.system/**
 !.codex/prompts/
 !.codex/prompts/**
+
+# Local fork-only scratch
+ghostty/zig-pkg/
+skills/omx-governance/
+out.txt

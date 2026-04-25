@@ -1,6 +1,14 @@
 # Changelog
 
-All notable changes to cmux are documented here.
+All notable changes to cmax are documented here.
+
+## [1.0.0] - 2026-04-20
+
+### Changed
+- First official cmax fork release. Based on cmux 0.63.2.
+- Stable release packaging, Sparkle feed, and GitHub release metadata now point to `Lcc1ccl/cmax`.
+- Repository scope is trimmed to the app/runtime/release surface; website, Homebrew tap mirror, nightly lane, and auxiliary automation workflows are removed from this fork.
+
 
 ## [0.63.2] - 2026-04-06
 

@@ -1,4 +1,4 @@
-# Contributing to cmux
+# Contributing to cmax
 
 ## Prerequisites
 
@@ -10,8 +10,8 @@
 
 1. Clone the repository with submodules:
    ```bash
-   git clone --recursive https://github.com/manaflow-ai/cmux.git
-   cd cmux
+   git clone --recursive https://github.com/Lcc1ccl/cmax.git
+   cd cmax
    ```
 
 2. Run the setup script:
@@ -20,7 +20,7 @@
    ```
 
    This will:
-   - Initialize git submodules (ghostty, homebrew-cmux)
+   - Initialize git submodules (ghostty, vendor/bonsplit)
    - Build the GhosttyKit.xcframework from source
    - Create the necessary symlinks
 
@@ -65,7 +65,7 @@ ssh cmux-vm 'cd /Users/cmux/GhosttyTabs && xcodebuild -project GhosttyTabs.xcode
 
 ## Ghostty Submodule
 
-The `ghostty` submodule points to [manaflow-ai/ghostty](https://github.com/manaflow-ai/ghostty), a fork of the upstream Ghostty project.
+The `ghostty` submodule points to [manaflow-ai/ghostty](https://github.com/manaflow-ai/ghostty), a fork of the upstream Ghostty project used by this app-focused fork.
 
 ### Making changes to ghostty
 

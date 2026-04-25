@@ -1,0 +1,11 @@
+{
+  "productName": "cmax",
+  "productVersion": "1.0.0",
+  "upstreamVersion": "0.63.2",
+  "baseProductVersion": "1.0.0",
+  "baseUpstreamVersion": "0.63.2",
+  "releaseRepo": "Lcc1ccl/cmax",
+  "stableAppcastUrl": "https://github.com/Lcc1ccl/cmax/releases/latest/download/appcast.xml",
+  "releaseAssetName": "cmax-macos.dmg",
+  "releaseNotesUrlTemplate": "https://github.com/Lcc1ccl/cmax/releases/tag/{tag}"
+}

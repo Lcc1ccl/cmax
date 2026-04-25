@@ -230,23 +230,22 @@ git commit -m "Update ghostty submodule"
 
 ## Release
 
-Use the `/release` command to prepare a new release. This will:
-1. Determine the new version (bumps minor by default)
-2. Gather commits since the last tag and update the changelog
-3. Update `CHANGELOG.md` (the docs changelog page at `web/app/docs/changelog/page.tsx` reads from it)
-4. Run `./scripts/bump-version.sh` to update both versions
-5. Commit, run `./scripts/release-pretag-guard.sh`, tag, and push
+Use the `/release` command to prepare a new cmax release. This will:
+1. Determine the target version from `.release-policy.json` and the intended upstream sync
+2. Gather commits since the last tag and update `CHANGELOG.md`
+3. Run `./scripts/bump-version.sh --upstream <x.y.z>` or `./scripts/bump-version.sh <product-version>`
+4. Commit, run `./scripts/release-pretag-guard.sh`, tag, and push
+5. Watch the release workflow and verify `cmax-macos.dmg` + `appcast.xml`
 
 Version bumping:
 
 ```bash
-./scripts/bump-version.sh          # bump minor (0.15.0 → 0.16.0)
-./scripts/bump-version.sh patch    # bump patch (0.15.0 → 0.15.1)
-./scripts/bump-version.sh major    # bump major (0.15.0 → 1.0.0)
-./scripts/bump-version.sh 1.0.0    # set specific version
+./scripts/bump-version.sh --upstream 0.63.3   # 1.0.0 → 1.0.1
+./scripts/bump-version.sh --upstream 0.64.0   # 1.0.0 → 1.1.0
+./scripts/bump-version.sh 1.0.0               # set specific product version
 ```
 
-This updates both `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` (build number). The build number is auto-incremented and is required for Sparkle auto-update to work.
+This updates both `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` (build number). The build number is auto-incremented and must stay above the latest published Sparkle build in this fork's appcast.
 
 Before creating a release tag, run:
 
@@ -254,7 +253,7 @@ Before creating a release tag, run:
 ./scripts/release-pretag-guard.sh
 ```
 
-If it fails, run `./scripts/bump-version.sh`, commit the build-number bump, then retry tagging.
+If it fails, run `./scripts/bump-version.sh ...`, commit the build-number bump, then retry tagging.
 
 Manual release steps (if not using the command):
 
@@ -262,13 +261,12 @@ Manual release steps (if not using the command):
 ./scripts/release-pretag-guard.sh
 git tag vX.Y.Z
 git push origin vX.Y.Z
-gh run watch --repo manaflow-ai/cmux
+gh run watch --repo Lcc1ccl/cmax
 ```
 
 Notes:
-- Requires GitHub secrets: `APPLE_CERTIFICATE_BASE64`, `APPLE_CERTIFICATE_PASSWORD`,
-  `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`.
-- The release asset is `cmux-macos.dmg` attached to the tag.
-- README download button points to `releases/latest/download/cmux-macos.dmg`.
-- Versioning: bump the minor version for updates unless explicitly asked otherwise.
-- Changelog: update `CHANGELOG.md`; docs changelog is rendered from it.
+- Required GitHub secrets: `SPARKLE_PRIVATE_KEY`, `APPLE_CERTIFICATE_BASE64`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_RELEASE_PROVISIONING_PROFILE_BASE64`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`.
+- The release assets are `cmax-macos.dmg`, `appcast.xml`, and remote-daemon artifacts attached to the tag.
+- README download button points to `releases/latest/download/cmax-macos.dmg`.
+- Versioning follows `docs/fork-release.md` and `.release-policy.json`.
+- Upstream syncs stay narrow; see `docs/upstream-sync.md`.

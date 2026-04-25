@@ -10638,8 +10638,8 @@ enum DevBuildBannerDebugSettings {
 private enum FeedbackComposerSettings {
     static let storedEmailKey = "sidebarHelpFeedbackEmail"
     static let endpointEnvironmentKey = "CMUX_FEEDBACK_API_URL"
-    static let defaultEndpoint = "https://cmux.com/api/feedback"
-    static let foundersEmail = "founders@manaflow.com"
+    static let defaultEndpoint = ""
+    static let foundersEmail = ""
     static let maxMessageLength = 4_000
     static let maxAttachmentCount = 10
     // Keep the multipart body below Vercel's 4.5 MB request limit.
@@ -11692,7 +11692,7 @@ private struct SidebarFeedbackComposerSheet: View {
             Text(
                 String(
                     localized: "sidebar.help.feedback.successBody",
-                    defaultValue: "You can also reach us at founders@manaflow.com."
+                    defaultValue: "If you need follow-up, please open a GitHub issue in the cmax repository."
                 )
             )
             .font(.system(size: 12))
@@ -11714,7 +11714,7 @@ private struct SidebarFeedbackComposerSheet: View {
             Text(
                 String(
                     localized: "sidebar.help.feedback.note",
-                    defaultValue: "A human will read this! You can also reach us at founders@manaflow.com."
+                    defaultValue: "Feedback is not configured for this fork yet. Please open a GitHub issue instead."
                 )
             )
             .font(.system(size: 12))
@@ -11967,7 +11967,7 @@ private struct SidebarFeedbackComposerSheet: View {
         case .invalidEndpoint:
             return String(
                 localized: "sidebar.help.feedback.endpointError",
-                defaultValue: "Feedback is unavailable right now. Email founders@manaflow.com instead."
+                defaultValue: "Feedback is not configured for this fork yet. Please open a GitHub issue instead."
             )
         case .invalidResponse:
             return String(
@@ -12010,7 +12010,7 @@ private struct SidebarFeedbackComposerSheet: View {
             case 500...599:
                 return String(
                     localized: "sidebar.help.feedback.endpointError",
-                    defaultValue: "Feedback is unavailable right now. Email founders@manaflow.com instead."
+                    defaultValue: "Feedback is not configured for this fork yet. Please open a GitHub issue instead."
                 )
             default:
                 return String(
@@ -12111,7 +12111,7 @@ enum FeedbackComposerBridge {
 
         switch submissionError {
         case .invalidEndpoint:
-            return "Feedback is unavailable right now. Email founders@manaflow.com instead."
+            return "Feedback is not configured for this fork yet. Please open a GitHub issue instead."
         case .invalidResponse:
             return "Couldn't send feedback. Please try again."
         case .attachmentReadFailed:
@@ -12130,7 +12130,7 @@ enum FeedbackComposerBridge {
             case 429:
                 return "Too many feedback attempts. Please try again later."
             case 500...599:
-                return "Feedback is unavailable right now. Email founders@manaflow.com instead."
+                return "Feedback is not configured for this fork yet. Please open a GitHub issue instead."
             default:
                 return "Couldn't send feedback. Please try again."
             }
@@ -12139,11 +12139,11 @@ enum FeedbackComposerBridge {
 }
 
 private struct SidebarHelpMenuButton: View {
-    private let docsURL = URL(string: "https://cmux.com/docs")
-    private let changelogURL = URL(string: "https://cmux.com/docs/changelog")
-    private let githubURL = URL(string: "https://github.com/manaflow-ai/cmux")
-    private let githubIssuesURL = URL(string: "https://github.com/manaflow-ai/cmux/issues")
-    private let discordURL = URL(string: "https://discord.gg/xsgFEVrWCZ")
+    private let docsURL = URL(string: "https://github.com/Lcc1ccl/cmax/tree/main/docs")
+    private let changelogURL = URL(string: "https://github.com/Lcc1ccl/cmax/blob/main/CHANGELOG.md")
+    private let githubURL = URL(string: "https://github.com/Lcc1ccl/cmax")
+    private let githubIssuesURL = URL(string: "https://github.com/Lcc1ccl/cmax/issues")
+    private let discordURL: URL? = nil
     private let helpTitle = String(localized: "sidebar.help.button", defaultValue: "Help")
     private let buttonSize: CGFloat = 22
     private let iconSize: CGFloat = 11

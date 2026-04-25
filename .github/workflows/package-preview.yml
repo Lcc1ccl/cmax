@@ -1,0 +1,128 @@
+name: Package cmax preview
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-preview:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      CMUX_PACKAGE_SOURCE_PACKAGES_DIR: ${{ github.workspace }}/.package-source-packages
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          submodules: recursive
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          if [ -d "/Applications/Xcode.app/Contents/Developer" ]; then
+            XCODE_DIR="/Applications/Xcode.app/Contents/Developer"
+          else
+            XCODE_APP="$(ls -d /Applications/Xcode*.app 2>/dev/null | sort | tail -n 1 || true)"
+            if [ -n "$XCODE_APP" ]; then
+              XCODE_DIR="$XCODE_APP/Contents/Developer"
+            else
+              echo "No Xcode.app found under /Applications" >&2
+              exit 1
+            fi
+          fi
+          echo "DEVELOPER_DIR=$XCODE_DIR" >> "$GITHUB_ENV"
+          export DEVELOPER_DIR="$XCODE_DIR"
+          xcodebuild -version
+
+      - name: Install Zig
+        run: |
+          set -euo pipefail
+          ZIG_REQUIRED="0.15.2"
+          if command -v zig >/dev/null 2>&1 && zig version 2>/dev/null | grep -q "^${ZIG_REQUIRED}"; then
+            echo "zig ${ZIG_REQUIRED} already installed"
+          else
+            echo "Installing zig ${ZIG_REQUIRED} from tarball"
+            curl -fSL "https://ziglang.org/download/${ZIG_REQUIRED}/zig-aarch64-macos-${ZIG_REQUIRED}.tar.xz" -o /tmp/zig.tar.xz
+            tar xf /tmp/zig.tar.xz -C /tmp
+            sudo mkdir -p /usr/local/bin /usr/local/lib
+            sudo cp -f /tmp/zig-aarch64-macos-${ZIG_REQUIRED}/zig /usr/local/bin/zig
+            sudo cp -rf /tmp/zig-aarch64-macos-${ZIG_REQUIRED}/lib /usr/local/lib/zig
+            export PATH="/usr/local/bin:$PATH"
+            zig version
+          fi
+
+      - name: Cache Swift packages
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: .package-source-packages
+          key: package-preview-spm-${{ hashFiles('GhosttyTabs.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: package-preview-spm-
+
+      - name: Capture Ghostty submodule SHA
+        id: ghostty-sha
+        run: |
+          set -euo pipefail
+          GHOSTTY_SHA="$(git ls-tree HEAD ghostty | awk '{print $3}')"
+          if [ -z "$GHOSTTY_SHA" ]; then
+            echo "Failed to resolve ghostty submodule SHA" >&2
+            exit 1
+          fi
+          echo "sha=$GHOSTTY_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Cache GhosttyKit.xcframework
+        id: cache-ghosttykit
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: GhosttyKit.xcframework
+          key: package-preview-ghosttykit-${{ hashFiles('.gitmodules') }}-${{ steps.ghostty-sha.outputs.sha }}
+
+      - name: Download pre-built GhosttyKit.xcframework
+        if: steps.cache-ghosttykit.outputs.cache-hit != 'true'
+        run: ./scripts/download-prebuilt-ghosttykit.sh
+
+      - name: Setup Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: daemon/remote/go.mod
+
+      - name: Build preview package
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${GITHUB_SHA::12}"
+          PREVIEW_TAG="preview-${GITHUB_RUN_NUMBER}-${SHORT_SHA}"
+          ./scripts/package-local-acceptance.sh \
+            --release-tag "$PREVIEW_TAG" \
+            --output-dir "$PWD/package-preview"
+
+      - name: Upload preview artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cmax-package-preview-${{ github.run_number }}
+          retention-days: 7
+          path: |
+            package-preview/cmux.app
+            package-preview/cmax-macos-local.dmg
+            package-preview/package-info.json
+            package-preview/remote-daemon-assets/*
+          if-no-files-found: error
+
+      - name: Publish workflow summary
+        if: always()
+        run: |
+          {
+            echo "## cmax package preview"
+            echo
+            echo "- Artifact: cmax-package-preview-${{ github.run_number }}"
+            echo "- Preview tag: preview-${{ github.run_number }}-${GITHUB_SHA::12}"
+            echo "- Remote daemon bootstrap: bundled inside cmux.app and exported separately under package-preview/remote-daemon-assets/"
+            echo "- Paths:"
+            echo "  - package-preview/cmux.app"
+            echo "  - package-preview/cmax-macos-local.dmg"
+            echo "  - package-preview/remote-daemon-assets/"
+          } >> "$GITHUB_STEP_SUMMARY"

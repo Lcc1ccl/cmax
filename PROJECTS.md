@@ -1,11 +1,12 @@
 # PROJECTS
 
-Cross-project tracking (features, bugs, backlog) for cmux.
+Cross-project tracking (features, bugs, backlog) for the cmax fork.
+
+> Note: this file still contains inherited upstream history. Entries below do not automatically mean the current fork still ships every surface or workflow.
 
 ## Done
 - 2026-02-14: Fixed updater release regression path: made `.github/workflows/release.yml` Sparkle Info.plist key injection idempotent (re-running tags no longer fails with "Entry Already Exists"), and hardened `scripts/bump-version.sh` to keep `CURRENT_PROJECT_VERSION` above the latest published Sparkle appcast build number so upgrades from `0.27.0` can be detected.
 - 2026-02-14: Relicensed the repository to strong copyleft (`AGPL-3.0-or-later`), added canonical `LICENSE` text, and updated project/package metadata to advertise AGPL consistently.
-- 2026-02-14: Added an opt-in nightly update channel in Settings (`Receive nightly builds`) that routes Sparkle feed selection between stable and nightly appcasts, plus a scheduled GitHub Actions nightly pipeline (`.github/workflows/nightly.yml`) that only rebuilds when `main` has new commits since `nightly` (or when manually forced).
 - 2026-02-13: Added `demos/wkwebview-ssh-proxy-cookie-demo/` with a standalone macOS Swift app (two WKWebViews), two Docker backends (`:8080`) running behind separate SSH SOCKS tunnels, and scripts/docs to demonstrate same URL (`shared.test:8080`) routing to different backends plus app-level cookie sync between separate proxy-scoped data stores.
 - 2026-02-13: Expanded skill docs for end users: added deep-linkable `cmux-browser` references (`authentication.md`, `session-management.md`, `snapshot-refs.md`, `video-recording.md`, `proxy-support.md`) + templates, and added a new `skills/cmux/` core skill for windows/workspaces/panes/surfaces workflows.
 - 2026-02-13: Changed CLI ID formatting defaults to refs-first for `--json` output (UUID output now opt-in via `--id-format uuids|both`) and added regression test `tests_v2/test_cli_id_format_defaults.py`.

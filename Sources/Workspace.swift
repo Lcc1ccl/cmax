@@ -4511,6 +4511,16 @@ final class WorkspaceRemoteSessionController {
             .appendingPathComponent("cmuxd-remote", isDirectory: false)
     }
 
+    private static func bundledRemoteDaemonBinaryURL(entry: WorkspaceRemoteDaemonManifest.Entry) -> URL? {
+        guard let bundledURL = Bundle.main.resourceURL?
+            .appendingPathComponent("remote-daemon-assets", isDirectory: true)
+            .appendingPathComponent(entry.assetName, isDirectory: false),
+              FileManager.default.fileExists(atPath: bundledURL.path) else {
+            return nil
+        }
+        return bundledURL
+    }
+
     private static func sha256Hex(forFile url: URL) throws -> String {
         let data = try Data(contentsOf: url)
         let digest = SHA256.hash(data: data)
@@ -4634,6 +4644,26 @@ final class WorkspaceRemoteSessionController {
         return cacheURL
     }
 
+    private static func cacheBundledRemoteDaemonBinaryLocked(entry: WorkspaceRemoteDaemonManifest.Entry, version: String) throws -> URL? {
+        guard let bundledURL = bundledRemoteDaemonBinaryURL(entry: entry) else { return nil }
+
+        let bundledSHA = try sha256Hex(forFile: bundledURL)
+        guard bundledSHA == entry.sha256.lowercased() else { return nil }
+
+        let cacheURL = try remoteDaemonCachedBinaryURL(version: version, goOS: entry.goOS, goArch: entry.goArch)
+        let fileManager = FileManager.default
+        try fileManager.createDirectory(at: cacheURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+
+        let tempURL = cacheURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(cacheURL.lastPathComponent).tmp-\(UUID().uuidString)")
+        try? fileManager.removeItem(at: tempURL)
+        try? fileManager.removeItem(at: cacheURL)
+        try fileManager.copyItem(at: bundledURL, to: tempURL)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tempURL.path)
+        try fileManager.moveItem(at: tempURL, to: cacheURL)
+        return cacheURL
+    }
+
     private func buildLocalDaemonBinary(goOS: String, goArch: String, version: String) throws -> URL {
         if let explicitBinary = Self.explicitRemoteDaemonBinaryURL(),
            FileManager.default.isExecutableFile(atPath: explicitBinary.path) {
@@ -4653,6 +4683,10 @@ final class WorkspaceRemoteSessionController {
                     return cacheURL
                 }
                 try? FileManager.default.removeItem(at: cacheURL)
+            }
+            if let bundledURL = try Self.cacheBundledRemoteDaemonBinaryLocked(entry: entry, version: manifest.appVersion) {
+                debugLog("remote.build.bundled path=\(bundledURL.path)")
+                return bundledURL
             }
             let downloadedURL = try downloadRemoteDaemonBinaryLocked(entry: entry, version: manifest.appVersion, releaseURL: manifest.releaseURL)
             debugLog("remote.build.downloaded path=\(downloadedURL.path)")
