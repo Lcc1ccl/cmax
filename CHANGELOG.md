@@ -2,6 +2,17 @@
 
 All notable changes to cmax are documented here.
 
+## [1.0.1] - 2026-04-26
+
+### Changed
+- Ship Cmax as an independent macOS product bundle (`Cmax.app`, `com.cmaxterm.app`) so it no longer overwrites an existing cmux installation.
+- Simplify release packaging for the personal/open-source distribution path: ad-hoc signed DMG, Sparkle appcast signing, no Apple Developer ID notarization requirement.
+- Replace the inherited long README with a focused Cmax project page that highlights project-aware sidebar work and ongoing OMX automation adaptation.
+
+### Notes
+- Internal executable, CLI, socket, and module names intentionally remain `cmux` for compatibility.
+- Based on cmux 0.63.2.
+
 ## [1.0.0] - 2026-04-20
 
 ### Changed

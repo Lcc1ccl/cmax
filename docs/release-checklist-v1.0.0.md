@@ -1,4 +1,4 @@
-# cmax v1.0.0 release checklist
+# cmax release checklist
 
 ## 1. 必配 GitHub Secret
 
@@ -50,15 +50,15 @@
 
 ## 4. 当前仓库状态基线
 
-已核对当前首发基线：
+已核对当前发布基线：
 
 - Release app：`Cmax.app`
 - Release Bundle ID：`com.cmaxterm.app`
 - App executable / bundled CLI：仍为 `cmux`
-- `MARKETING_VERSION = 1.0.0`
-- `CURRENT_PROJECT_VERSION = 80`
+- `MARKETING_VERSION = 1.0.1`
+- `CURRENT_PROJECT_VERSION = 81`
 - `.release-policy.json`:
-  - `productVersion = 1.0.0`
+  - `productVersion = 1.0.1`
   - `upstreamVersion = 0.63.2`
 - Sparkle feed：`https://github.com/Lcc1ccl/cmax/releases/latest/download/appcast.xml`
 - release 资产名：`cmax-macos.dmg`
@@ -76,11 +76,11 @@
 
 ```bash
 ./scripts/release-pretag-guard.sh
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.2
+git push origin v1.0.2
 ```
 
-> `v1.0.0` 已经存在时，不建议移动旧 tag；常规做法是发一个新的 patch tag。
+> 已经发布过的 tag 不建议移动；常规做法是发一个新的 patch tag。
 
 ## 6. Tag 后应看到的结果
 
