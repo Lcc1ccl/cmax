@@ -44,9 +44,9 @@
 运行依赖：
 
 - Preview runner：`macos-15`
-- Release runner：`warp-macos-26-arm64-6x`
+- Release runner：`macos-15`
 
-如果仓库没有 WarpBuild runner，请把 release workflow 的 `runs-on` 改成你可用的 macOS runner 标签。
+Release 默认使用 GitHub-hosted `macos-15`，避免依赖离线的个人 self-hosted runner。
 
 ## 4. 当前仓库状态基线
 
