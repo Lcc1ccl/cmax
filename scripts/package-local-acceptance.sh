@@ -108,7 +108,7 @@ WORK_DIR="$OUTPUT_DIR/.work"
 BUILD_DIR="$WORK_DIR/build-universal"
 SOURCE_PACKAGES_DIR="${CMUX_PACKAGE_SOURCE_PACKAGES_DIR:-$WORK_DIR/.spm-cache}"
 REMOTE_ASSETS_DIR="$OUTPUT_DIR/remote-daemon-assets"
-APP_BUNDLE_OUT="$OUTPUT_DIR/cmux.app"
+APP_BUNDLE_OUT="$OUTPUT_DIR/Cmax.app"
 DMG_OUT="$OUTPUT_DIR/cmax-macos-local.dmg"
 BUILD_INFO_OUT="$OUTPUT_DIR/package-info.json"
 
@@ -141,7 +141,7 @@ xcodebuild -project GhosttyTabs.xcodeproj -scheme cmux -configuration Release \
   CODE_SIGNING_ALLOWED=NO \
   build
 
-APP_PATH="$BUILD_DIR/Build/Products/Release/cmux.app"
+APP_PATH="$BUILD_DIR/Build/Products/Release/Cmax.app"
 APP_PLIST="$APP_PATH/Contents/Info.plist"
 
 if [[ ! -d "$APP_PATH" ]]; then

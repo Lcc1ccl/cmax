@@ -106,7 +106,7 @@ jobs:
           name: cmax-package-preview-${{ github.run_number }}
           retention-days: 7
           path: |
-            package-preview/cmux.app
+            package-preview/Cmax.app
             package-preview/cmax-macos-local.dmg
             package-preview/package-info.json
             package-preview/remote-daemon-assets/*
@@ -120,9 +120,9 @@ jobs:
             echo
             echo "- Artifact: cmax-package-preview-${{ github.run_number }}"
             echo "- Preview tag: preview-${{ github.run_number }}-${GITHUB_SHA::12}"
-            echo "- Remote daemon bootstrap: bundled inside cmux.app and exported separately under package-preview/remote-daemon-assets/"
+            echo "- Remote daemon bootstrap: bundled inside Cmax.app and exported separately under package-preview/remote-daemon-assets/"
             echo "- Paths:"
-            echo "  - package-preview/cmux.app"
+            echo "  - package-preview/Cmax.app"
             echo "  - package-preview/cmax-macos-local.dmg"
             echo "  - package-preview/remote-daemon-assets/"
           } >> "$GITHUB_STEP_SUMMARY"

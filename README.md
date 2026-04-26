@@ -31,7 +31,7 @@
   <img src="./docs/assets/macos-badge.png" alt="Download cmax for macOS" width="180" />
 </a>
 
-Open the `.dmg` and drag `cmux.app` to your Applications folder. This fork publishes updates through Sparkle from its own GitHub release feed, so you only need to install once.
+Open the `.dmg` and drag `Cmax.app` to your Applications folder. This fork publishes updates through Sparkle from its own GitHub release feed, so you only need to install once.
 
 On first launch, macOS may ask you to confirm opening an app from an identified developer. Click **Open** to proceed.
 

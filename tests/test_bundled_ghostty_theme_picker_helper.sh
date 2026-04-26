@@ -10,7 +10,7 @@ case "$CONFIGURATION" in
     APP_NAME="cmux DEV.app"
     ;;
   Release)
-    APP_NAME="cmux.app"
+    APP_NAME="Cmax.app"
     ;;
   *)
     echo "FAIL: unsupported configuration $CONFIGURATION" >&2
